@@ -2,7 +2,9 @@
 // Typed fetch wrapper. Attaches Bearer token from localStorage automatically.
 
 export function getBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  // Treat an absent/blank env var as unset — an empty string must never
+  // degrade to a same-origin POST (Next 404 "Cannot POST /auth/register").
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
     return envUrl.replace(/\/+$/, '');
   }
@@ -10,6 +12,8 @@ export function getBaseUrl(): string {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      // Deployed: a localhost/blank env var is a misconfiguration —
+      // the code path below (localhost dev) cannot be right here.
       return 'https://brightloop-sms-api.onrender.com/api/v1';
     }
   }
