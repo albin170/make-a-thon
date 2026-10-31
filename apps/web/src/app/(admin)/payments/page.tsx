@@ -83,6 +83,7 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRecordPayment = async (e: React.FormEvent) => {
