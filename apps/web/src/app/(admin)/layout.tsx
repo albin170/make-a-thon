@@ -113,19 +113,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <div>
-          {/* Upgrade to Pro Card Widget (matching Image 1) */}
-          <div className="p-3 mx-3 mb-3 rounded-2xl bg-gradient-to-br from-violet-900/40 to-indigo-950/40 border border-violet-500/25 p-4 text-center relative overflow-hidden">
-            <div className="w-10 h-10 rounded-xl bg-violet-600/30 text-violet-300 flex items-center justify-center mx-auto mb-2 text-xl shadow-inner border border-violet-400/30">
-              💎
+          {/* Admin System Governance Info */}
+          <div className="p-3 mx-3 mb-3 rounded-2xl bg-gradient-to-br from-violet-900/20 to-slate-900/60 border border-violet-500/20 p-4 text-center relative overflow-hidden">
+            <div className="w-9 h-9 rounded-xl bg-violet-600/20 text-violet-300 flex items-center justify-center mx-auto mb-2 text-lg border border-violet-400/25">
+              🛡️
             </div>
-            <h4 className="text-xs font-bold text-white tracking-wide">Upgrade to Pro</h4>
-            <p className="text-[11px] text-slate-400 mt-1">Unlock multi-entity billing and automated tax nexus.</p>
-            <button
-              type="button"
-              className="mt-3 w-full py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold shadow-md shadow-violet-600/40 transition"
-            >
-              View Plans →
-            </button>
+            <h4 className="text-xs font-bold text-white tracking-wide">Administrator Hub</h4>
+            <p className="text-[11px] text-slate-400 mt-1">Full system control, billing governance & user management.</p>
           </div>
 
           {/* User profile footer */}
