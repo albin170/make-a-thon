@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
-import { Controller } from '@nestjs/common';
-@Controller({ path: 'subscriptions', version: '1' })
-export class SubscriptionsController {}
-@Module({ controllers: [SubscriptionsController] })
+import { SubscriptionsController } from './subscriptions.controller';
+import { SubscriptionsService } from './subscriptions.service';
+
+@Module({
+  controllers: [SubscriptionsController],
+  providers: [SubscriptionsService],
+  exports: [SubscriptionsService],
+})
 export class SubscriptionsModule {}

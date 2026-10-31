@@ -29,3 +29,4 @@ export class RegisterDto {
   @IsString()
   companyName?: string;
 }
+

@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
-import { Controller } from '@nestjs/common';
-@Controller({ path: 'taxes', version: '1' })
-export class TaxController {}
-@Module({ controllers: [TaxController] })
+import { TaxController } from './tax.controller';
+import { TaxService } from './tax.service';
+
+@Module({
+  controllers: [TaxController],
+  providers: [TaxService],
+  exports: [TaxService],
+})
 export class TaxModule {}

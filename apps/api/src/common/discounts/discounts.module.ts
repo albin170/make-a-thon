@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
-import { Controller } from '@nestjs/common';
-@Controller({ path: 'discounts', version: '1' })
-export class DiscountsController {}
-@Module({ controllers: [DiscountsController] })
+import { DiscountsController } from './discounts.controller';
+import { DiscountsService } from './discounts.service';
+
+@Module({
+  controllers: [DiscountsController],
+  providers: [DiscountsService],
+  exports: [DiscountsService],
+})
 export class DiscountsModule {}

@@ -1,0 +1,94 @@
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  Request,
+  ForbiddenException,
+  ParseUUIDPipe,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+} from '@nestjs/swagger';
+import { CustomersService, UpdateCustomerDto } from './customers.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
+
+@ApiTags('customers')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller({ path: 'customers', version: '1' })
+export class CustomersController {
+  constructor(private readonly customersService: CustomersService) {}
+
+  /**
+   * GET /v1/customers
+   * List all customers with pagination/filtering (ADMIN, STAFF only)
+   */
+  @Get()
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @ApiOperation({ summary: 'List all customers (ADMIN, STAFF)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'currency', required: false, type: String })
+  listCustomers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('currency') currency?: string,
+  ) {
+    return this.customersService.listCustomers({
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      search,
+      currency,
+    });
+  }
+
+  /**
+   * GET /v1/customers/:id
+   * Get a single customer. ADMIN/STAFF can get any; CUSTOMER can only get their own record.
+   */
+  @Get(':id')
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.CUSTOMER)
+  @ApiOperation({ summary: 'Get a customer by ID' })
+  async getCustomer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ) {
+    const { user } = req;
+
+    if (user.role === UserRole.CUSTOMER) {
+      // Verify the CUSTOMER owns this customer record
+      const ownRecord = await this.customersService.getCustomerByUserId(user.id);
+      if (!ownRecord || ownRecord.id !== id) {
+        throw new ForbiddenException('You do not have access to this customer record');
+      }
+    }
+
+    return this.customersService.getCustomer(id);
+  }
+
+  /**
+   * PATCH /v1/customers/:id
+   * Update a customer record (ADMIN, STAFF only)
+   */
+  @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @ApiOperation({ summary: 'Update a customer (ADMIN, STAFF)' })
+  updateCustomer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCustomerDto,
+  ) {
+    return this.customersService.updateCustomer(id, dto);
+  }
+}

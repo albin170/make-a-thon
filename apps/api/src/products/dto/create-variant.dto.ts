@@ -9,3 +9,4 @@ export class CreateVariantDto {
   @ApiProperty({ required: false }) @IsOptional() @IsString() sku?: string;
   @ApiProperty({ default: true }) @IsOptional() @IsBoolean() isActive?: boolean;
 }
+

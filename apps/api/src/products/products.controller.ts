@@ -69,3 +69,4 @@ export class ProductsController {
     return this.productsService.createVariant(productId, dto);
   }
 }
+

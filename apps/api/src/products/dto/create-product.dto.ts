@@ -13,3 +13,4 @@ export class CreateProductDto {
   @ApiProperty({ enum: ['ACTIVE','INACTIVE'], default: 'ACTIVE' })
   @IsOptional() @IsEnum(['ACTIVE','INACTIVE']) status?: string;
 }
+

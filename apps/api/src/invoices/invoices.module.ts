@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
-import { Controller } from '@nestjs/common';
-@Controller({ path: 'invoices', version: '1' })
-export class InvoicesController {}
-@Module({ controllers: [InvoicesController] })
+import { InvoicesController } from './invoices.controller';
+import { InvoicesService } from './invoices.service';
+
+@Module({
+  controllers: [InvoicesController],
+  providers: [InvoicesService],
+  exports: [InvoicesService],
+})
 export class InvoicesModule {}

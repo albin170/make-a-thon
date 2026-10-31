@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
-import { Controller } from '@nestjs/common';
-@Controller({ path: 'quotations', version: '1' })
-export class QuotationsController {}
-@Module({ controllers: [QuotationsController] })
+import { QuotationsController } from './quotations.controller';
+import { QuotationsService } from './quotations.service';
+
+@Module({
+  controllers: [QuotationsController],
+  providers: [QuotationsService],
+  exports: [QuotationsService],
+})
 export class QuotationsModule {}

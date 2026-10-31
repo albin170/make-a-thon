@@ -14,3 +14,4 @@ prisma/generated/
 *.p12
 .DS_Store
 Thumbs.db
+

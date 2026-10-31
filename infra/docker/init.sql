@@ -4,3 +4,4 @@
 -- Create test database for automated tests
 CREATE DATABASE brightloop_sms_test OWNER sms_user;
 GRANT ALL PRIVILEGES ON DATABASE brightloop_sms_test TO sms_user;
+
