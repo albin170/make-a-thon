@@ -6,14 +6,13 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { PrismaService } from '../common/prisma/prisma.service';
-import {
-  addDays, addWeeks, addMonths, addYears,
-  format, startOfDay,
-} from 'date-fns';
+import { RecurrenceEngine } from '../common/recurrence/recurrence.engine';
+import { startOfDay } from 'date-fns';
 
 @Injectable()
 export class BillingScheduler {
   private readonly logger = new Logger(BillingScheduler.name);
+  private readonly recurrence = new RecurrenceEngine();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -90,17 +89,10 @@ export class BillingScheduler {
   }
 
   derivePeriodKey(subscriptionId: string, billingDate: Date): string {
-    return `${subscriptionId}::${format(billingDate, 'yyyy-MM-dd')}`;
+    return this.recurrence.derivePeriodKey(subscriptionId, billingDate);
   }
 
   nextBillingDate(current: Date, interval: string, count: number): Date {
-    switch (interval) {
-      case 'DAILY':   return addDays(current, count);
-      case 'WEEKLY':  return addWeeks(current, count);
-      case 'MONTHLY': return addMonths(current, count);
-      case 'YEARLY':  return addYears(current, count);
-      default:        return addMonths(current, count);
-    }
+    return this.recurrence.calculateNextBillingDate(current, interval, count);
   }
 }
-

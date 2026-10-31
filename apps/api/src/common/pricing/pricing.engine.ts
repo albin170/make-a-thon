@@ -7,9 +7,9 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 export interface PricingLine {
   quantity: number;
-  unitPrice: string; // Decimal string
-  discountAmount?: string; // Decimal string
-  taxRates?: Array<{ rate: string; type: 'INCLUSIVE' | 'EXCLUSIVE'; name: string; code: string }>;
+  unitPrice: string | number; // Decimal string or number
+  discountAmount?: string | number; // Decimal string or number
+  taxRates?: Array<{ rate: string | number; type: 'INCLUSIVE' | 'EXCLUSIVE'; name: string; code?: string }>;
 }
 
 export interface CalculatedLine {
@@ -33,7 +33,7 @@ export interface PricingResult {
 
 const SCALE = 10000n; // 4 decimal places
 
-function toMinorUnits(value: string): bigint {
+function toMinorUnits(value: string | number): bigint {
   const d = new Decimal(value);
   const [int, frac = ''] = d.toFixed(4).split('.');
   const fracPadded = frac.padEnd(4, '0').slice(0, 4);
@@ -55,6 +55,7 @@ export class PricingEngine {
     let subtotalMinor = 0n;
     let discountMinor = 0n;
     let taxMinor = 0n;
+    let exclusiveTaxMinor = 0n;
     const calculatedLines: CalculatedLine[] = [];
 
     for (const line of lines) {
@@ -64,11 +65,14 @@ export class PricingEngine {
 
       let discountAmount = line.discountAmount ? toMinorUnits(line.discountAmount) : 0n;
       // Prevent negative totals on a line
-      if (discountAmount > subtotalBeforeDiscount) discountAmount = subtotalBeforeDiscount;
+      if (discountAmount > subtotalBeforeDiscount) {
+        discountAmount = subtotalBeforeDiscount;
+      }
 
       const subtotalAfterDiscount = subtotalBeforeDiscount - discountAmount;
 
       let lineTaxMinor = 0n;
+      let lineExclusiveTaxMinor = 0n;
       const taxBreakdown: CalculatedLine['taxBreakdown'] = [];
 
       for (const tax of line.taxRates || []) {
@@ -78,29 +82,31 @@ export class PricingEngine {
         if (tax.type === 'EXCLUSIVE') {
           // Tax is added on top of subtotal
           taxAmt = (subtotalAfterDiscount * rateMinor) / (SCALE * 100n);
+          lineExclusiveTaxMinor += taxAmt;
         } else {
-          // Tax is already included in price — extract it
+          // Tax is already included in price — extract it: (P * R) / (100 + R)
           taxAmt = (subtotalAfterDiscount * rateMinor) / (SCALE * 100n + rateMinor);
         }
 
         lineTaxMinor += taxAmt;
         taxBreakdown.push({
           name: tax.name,
-          rate: tax.rate,
+          rate: String(tax.rate),
           amount: fromMinorUnits(taxAmt),
           type: tax.type,
         });
       }
 
-      const lineTotal = subtotalAfterDiscount + (line.taxRates?.some(t => t.type === 'EXCLUSIVE') ? lineTaxMinor : 0n);
+      const lineTotal = subtotalAfterDiscount + lineExclusiveTaxMinor;
 
       subtotalMinor += subtotalBeforeDiscount;
       discountMinor += discountAmount;
       taxMinor += lineTaxMinor;
+      exclusiveTaxMinor += lineExclusiveTaxMinor;
 
       calculatedLines.push({
         quantity: line.quantity,
-        unitPrice: line.unitPrice,
+        unitPrice: String(line.unitPrice),
         subtotalBeforeDiscount: fromMinorUnits(subtotalBeforeDiscount),
         discountAmount: fromMinorUnits(discountAmount),
         subtotalAfterDiscount: fromMinorUnits(subtotalAfterDiscount),
@@ -110,7 +116,7 @@ export class PricingEngine {
       });
     }
 
-    let exclusiveTaxMinor = 0n; for (const l of lines) { for (const t of l.taxRates || []) { if (t.type === 'EXCLUSIVE') { const rMinor = toMinorUnits(t.rate); const sAfterDisc = (BigInt(Math.round(l.quantity * 10000)) * toMinorUnits(l.unitPrice)) / SCALE - (l.discountAmount ? toMinorUnits(l.discountAmount) : 0n); exclusiveTaxMinor += (sAfterDisc * rMinor) / (SCALE * 100n); } } }; const grandTotal = subtotalMinor - discountMinor + exclusiveTaxMinor;
+    const grandTotal = subtotalMinor - discountMinor + exclusiveTaxMinor;
 
     return {
       lines: calculatedLines,
@@ -121,5 +127,3 @@ export class PricingEngine {
     };
   }
 }
-
-

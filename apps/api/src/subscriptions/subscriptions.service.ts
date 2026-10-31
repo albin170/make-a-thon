@@ -6,6 +6,7 @@ import {
 import { Prisma, SubscriptionStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
+import { RecurrenceEngine } from '../common/recurrence/recurrence.engine';
 
 interface CreateSubscriptionLineDto {
   productId?: string;
@@ -74,29 +75,18 @@ export class SubscriptionsService {
     });
   }
 
+  private readonly recurrence = new RecurrenceEngine();
+
   private computeNextBillingDate(
     startDate: Date,
     billingInterval: string,
     intervalCount: number,
   ): Date {
-    const next = new Date(startDate);
-    switch (billingInterval.toUpperCase()) {
-      case 'DAILY':
-        next.setDate(next.getDate() + intervalCount);
-        break;
-      case 'WEEKLY':
-        next.setDate(next.getDate() + intervalCount * 7);
-        break;
-      case 'MONTHLY':
-        next.setMonth(next.getMonth() + intervalCount);
-        break;
-      case 'YEARLY':
-        next.setMonth(next.getMonth() + intervalCount * 12);
-        break;
-      default:
-        next.setMonth(next.getMonth() + intervalCount);
-    }
-    return next;
+    return this.recurrence.calculateNextBillingDate(
+      startDate,
+      billingInterval,
+      intervalCount,
+    );
   }
 
   // ── Public methods ────────────────────────────────────────────────────────────

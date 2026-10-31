@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { PricingModule } from './common/pricing/pricing.module';
+import { RecurrenceModule } from './common/recurrence/recurrence.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CustomersModule } from './customers/customers.module';
@@ -25,6 +27,8 @@ import { HealthModule } from './health/health.module';
       limit: parseInt(process.env.RATE_LIMIT_MAX || '100'),
     }]),
     PrismaModule,
+    PricingModule,
+    RecurrenceModule,
     AuthModule,
     UsersModule,
     CustomersModule,
@@ -42,4 +46,3 @@ import { HealthModule } from './health/health.module';
   ],
 })
 export class AppModule {}
-
