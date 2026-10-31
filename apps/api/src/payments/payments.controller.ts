@@ -61,6 +61,13 @@ export class PaymentsController {
     return this.paymentsService.recordPayment(body);
   }
 
+  @Get('outstanding')
+  @Roles('ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'List confirmed invoices with outstanding balance (overdue flagged)' })
+  listOutstanding() {
+    return this.paymentsService.listOutstanding();
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'STAFF')
   @ApiOperation({ summary: 'Get payment by ID with allocations' })
@@ -81,5 +88,22 @@ export class PaymentsController {
       body.amount,
       body.notes,
     );
+  }
+
+  @Post(':id/allocations/:allocationId/revoke')
+  @Roles('ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'Revoke an allocation (funds return to unallocated pool)' })
+  revokeAllocation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('allocationId', ParseUUIDPipe) allocationId: string,
+  ) {
+    return this.paymentsService.revokeAllocation(id, allocationId);
+  }
+
+  @Post('overdue/sweep')
+  @Roles('ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'Mark past-due confirmed invoices as OVERDUE' })
+  sweepOverdue() {
+    return this.paymentsService.sweepOverdue();
   }
 }
