@@ -1,7 +1,4 @@
-import {
-  Controller, Post, Body, Get, UseGuards,
-  Request, HttpCode, HttpStatus, Res, Req,
-} from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -9,6 +6,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('auth')
@@ -69,8 +67,8 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
-  async refresh(@Body() body: { refreshToken: string }) {
-    return this.authService.refreshToken(body.refreshToken);
+  async refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refreshToken(dto.refreshToken);
   }
 }
 
