@@ -3,18 +3,10 @@
 
 export function getBaseUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-    return envUrl.replace(/\/+$/, '');
+  if (envUrl && envUrl.startsWith("http")) {
+    return envUrl.replace(/\/+$/, "");
   }
-
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      return 'https://brightloop-sms-api.onrender.com/api/v1';
-    }
-  }
-
-  return (envUrl || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+  return "https://brightloop-sms-api.onrender.com/api/v1";
 }
 
 export const BASE_URL = getBaseUrl();
@@ -76,7 +68,21 @@ async function request<T>(
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(`${getBaseUrl()}${path}`, { ...options, headers })
+  let res: Response;
+  try {
+    res = await fetch(`${getBaseUrl()}${path}`, { ...options, headers });
+  } catch (err: any) {
+    const fallbackUrl = "https://brightloop-sms-api.onrender.com/api/v1";
+    if (!getBaseUrl().startsWith(fallbackUrl)) {
+      try {
+        res = await fetch(`${fallbackUrl}${path}`, { ...options, headers });
+      } catch (fErr: any) {
+        throw new ApiError(0, "Unable to reach server. Please ensure backend is awake.");
+      }
+    } else {
+      throw new ApiError(0, "Server is waking up on Render. Please retry in a few seconds.");
+    }
+  }
 
   // Auto-refresh on 401
   if (res.status === 401 && retry) {
