@@ -330,9 +330,9 @@ export class SubscriptionsService {
     if (!subscription) {
       throw new NotFoundException(`Subscription ${id} not found`);
     }
-    if (subscription.status !== SubscriptionStatus.ACTIVE) {
+    if (subscription.status !== SubscriptionStatus.ACTIVE && subscription.status !== SubscriptionStatus.PAUSED) {
       throw new BadRequestException(
-        `Only ACTIVE subscriptions can be closed (current: ${subscription.status})`,
+        `Only ACTIVE or PAUSED subscriptions can be closed (current: ${subscription.status})`,
       );
     }
     if (!subscription.plan.allowEarlyClosure) {
