@@ -30,7 +30,6 @@ export class PlansController {
   constructor(private readonly plansService: PlansService) {}
 
   @Get()
-  @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'List plans (filtered by active status for CUSTOMER role)' })
   listPlans(
     @Query() query: ListPlansQueryDto,
@@ -43,7 +42,6 @@ export class PlansController {
   }
 
   @Get('catalogue')
-  @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'Customer-facing active plan catalogue' })
   getCatalogue(@Query() query: ListPlansQueryDto) {
     query.status = PlanStatus.ACTIVE;
@@ -59,7 +57,6 @@ export class PlansController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'Get plan details by ID' })
   getPlan(@Param('id') id: string) {
     return this.plansService.getPlan(id);
