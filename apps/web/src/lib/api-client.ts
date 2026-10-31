@@ -2,12 +2,37 @@
 // Typed fetch wrapper. Attaches Bearer token from localStorage automatically.
 
 export function getBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl && envUrl.startsWith("http")) {
-    return envUrl.replace(/\/+$/, "");
+  // Treat an absent/blank env var as unset — an empty string must never
+  // degrade to a same-origin POST (Next 404 "Cannot POST /auth/register").
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    // Guard against a misconfigured env var pointing at a KNOWN FRONTEND
+    // host (e.g. the Render web service) instead of the API.
+    try {
+      const host = new URL(envUrl).host;
+      const knownFrontendHosts = ['make-a-thon.onrender.com', 'web-smoky-chi-41.vercel.app'];
+      if (knownFrontendHosts.includes(host)) {
+        return DEFAULT_API_URL.replace(/\/+$/, '');
+      }
+    } catch {
+      // not an absolute URL — fall through
+    }
+    return envUrl.replace(/\/+$/, '');
   }
-  return "https://brightloop-sms-api.onrender.com/api/v1";
+
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      // Deployed: a localhost/blank env var is a misconfiguration —
+      // the code path below (localhost dev) cannot be right here.
+      return DEFAULT_API_URL.replace(/\/+$/, '');
+    }
+  }
+
+  return (envUrl || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
 }
+
+const DEFAULT_API_URL = 'https://brightloop-sms-api.onrender.com/api/v1';
 
 export const BASE_URL = getBaseUrl();
 
@@ -68,21 +93,7 @@ async function request<T>(
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  let res: Response;
-  try {
-    res = await fetch(`${getBaseUrl()}${path}`, { ...options, headers });
-  } catch (err: any) {
-    const fallbackUrl = "https://brightloop-sms-api.onrender.com/api/v1";
-    if (!getBaseUrl().startsWith(fallbackUrl)) {
-      try {
-        res = await fetch(`${fallbackUrl}${path}`, { ...options, headers });
-      } catch (fErr: any) {
-        throw new ApiError(0, "Unable to reach server. Please ensure backend is awake.");
-      }
-    } else {
-      throw new ApiError(0, "Server is waking up on Render. Please retry in a few seconds.");
-    }
-  }
+  const res = await fetch(`${getBaseUrl()}${path}`, { ...options, headers })
 
   // Auto-refresh on 401
   if (res.status === 401 && retry) {

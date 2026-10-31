@@ -16,3 +16,4 @@ prisma/generated/
 Thumbs.db
 .agents/
 skills-lock.json
+*.tsbuildinfo
