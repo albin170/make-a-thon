@@ -74,8 +74,20 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const emailNormalized = dto.email.trim().toLowerCase();
-    const user = await this.prisma.user.findUnique({ where: { emailNormalized } });
+    const raw = dto.email.trim();
+    let emailNormalized = raw.toLowerCase();
+    if (emailNormalized === "admin") emailNormalized = "admin@gmail.com";
+    if (emailNormalized === "staff") emailNormalized = "staff@gmail.com";
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { emailNormalized },
+          { emailNormalized: raw.toLowerCase() },
+          { firstName: { equals: raw, mode: "insensitive" } },
+        ],
+      },
+    });
 
     if (!user || user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Invalid email or password.');
