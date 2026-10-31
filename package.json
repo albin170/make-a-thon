@@ -17,11 +17,17 @@
     "lint": "npm run lint --workspaces --if-present",
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npx ts-node prisma/seed.ts",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "build:render": "npm install --include=dev && prisma generate --schema=prisma/schema.prisma && npm run build --workspace=apps/api",
+    "start:render": "node apps/api/dist/src/main.js"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "concurrently": "^8.2.2",
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "prisma": "^5.10.2",
+    "@prisma/client": "^5.10.2"
   }
 }
