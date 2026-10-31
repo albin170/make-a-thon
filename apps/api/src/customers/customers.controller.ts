@@ -17,7 +17,9 @@ import {
   ApiOperation,
   ApiQuery,
 } from '@nestjs/swagger';
-import { CustomersService, UpdateCustomerDto, CreateCustomerDto } from './customers.service';
+import { CustomersService, CreateCustomerDto } from './customers.service';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { ListCustomersQueryDto } from './dto/list-customers-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -42,17 +44,9 @@ export class CustomersController {
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'currency', required: false, type: String })
   listCustomers(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-    @Query('currency') currency?: string,
+    @Query() query: ListCustomersQueryDto,
   ) {
-    return this.customersService.listCustomers({
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      search,
-      currency,
-    });
+    return this.customersService.listCustomers(query);
   }
 
   /**
