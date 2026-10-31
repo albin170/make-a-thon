@@ -5,6 +5,7 @@ import { BillingScheduler } from './billing.scheduler';
 import { BillingWorker } from './billing.worker';
 import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
+import { PricingEngine } from '../common/pricing/pricing.engine';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { BillingService } from './billing.service';
     BullModule.registerQueue({ name: 'billing' }),
   ],
   controllers: [BillingController],
-  providers: [BillingScheduler, BillingWorker, BillingService],
+  providers: [BillingScheduler, BillingWorker, BillingService, PricingEngine],
   exports: [BillingService],
 })
 export class BillingModule {}

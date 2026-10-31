@@ -1,4 +1,4 @@
-// Billing Engine — BullMQ worker for recurring subscription billing.
+// Billing Engine — Bull worker for recurring subscription billing.
 // Enforces idempotency: each (subscriptionId, periodKey) pair produces exactly one invoice.
 
 import { Injectable, Logger } from '@nestjs/common';
@@ -6,6 +6,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { v4 as uuidv4 } from 'uuid';
 import { RecurrenceEngine } from '../common/recurrence/recurrence.engine';
 import { startOfDay } from 'date-fns';
 
@@ -26,51 +27,60 @@ export class BillingScheduler {
     const now = startOfDay(new Date());
 
     // Find active subscriptions whose next billing date is today or earlier
+    // and that have not ended yet (plan expiry respected).
     const dueSubscriptions = await this.prisma.subscription.findMany({
       where: {
         status: 'ACTIVE',
         nextBillingDate: { lte: now },
+        OR: [{ endDate: null }, { endDate: { gte: now } }],
       },
       include: { plan: true },
       take: 500, // bounded batch
     });
 
     this.logger.log(`Found ${dueSubscriptions.length} due subscriptions.`);
+    if (dueSubscriptions.length === 0) return;
 
     // Create a billing run record
     const run = await this.prisma.billingRun.create({
       data: {
-        id: require('uuid').v4(),
+        id: uuidv4(),
         runDate: now,
         status: 'PROCESSING',
         startedAt: new Date(),
       },
     });
 
+    let enqueued = 0;
     for (const sub of dueSubscriptions) {
       const periodKey = this.derivePeriodKey(sub.id, sub.nextBillingDate!);
 
-      // Check idempotency: skip if this period is already claimed
-      const existing = await this.prisma.billingPeriod.findUnique({
-        where: { periodKey },
-      });
-      if (existing) {
-        this.logger.warn(`Period ${periodKey} already exists — skipping.`);
-        continue;
+      // Claim the billing period atomically: the unique periodKey doubles as
+      // the claim marker, so a concurrent scheduler run that lost the race
+      // simply fails the create and skips.
+      try {
+        await this.prisma.billingPeriod.create({
+          data: {
+            id: uuidv4(),
+            subscriptionId: sub.id,
+            billingRunId: run.id,
+            periodKey,
+            periodStart: sub.nextBillingDate!,
+            periodEnd: this.nextBillingDate(
+              sub.nextBillingDate!,
+              sub.plan.billingInterval,
+              sub.plan.intervalCount,
+            ),
+            status: 'PENDING',
+          },
+        });
+      } catch (err: any) {
+        if (err?.code === 'P2002') {
+          this.logger.warn(`Period ${periodKey} already claimed — skipping.`);
+          continue;
+        }
+        throw err;
       }
-
-      // Claim the billing period
-      await this.prisma.billingPeriod.create({
-        data: {
-          id: require('uuid').v4(),
-          subscriptionId: sub.id,
-          billingRunId: run.id,
-          periodKey,
-          periodStart: sub.nextBillingDate!,
-          periodEnd: this.nextBillingDate(sub.nextBillingDate!, sub.plan.billingInterval, sub.plan.intervalCount),
-          status: 'PENDING',
-        },
-      });
 
       await this.billingQueue.add(
         'process-billing-period',
@@ -78,14 +88,25 @@ export class BillingScheduler {
         {
           attempts: 5,
           backoff: { type: 'exponential', delay: 5000 },
-          jobId: periodKey, // BullMQ deduplication
+          jobId: periodKey, // queue-level deduplication
           removeOnComplete: false,
           removeOnFail: false,
         },
       );
+      enqueued++;
     }
 
-    this.logger.log(`Enqueued billing jobs for run ${run.id}`);
+    // If every sub was already claimed (cron raced with a manual trigger),
+    // there is nothing to process — do not leave a stuck PROCESSING run.
+    if (enqueued === 0) {
+      await this.prisma.billingRun.update({
+        where: { id: run.id },
+        data: { status: 'COMPLETED', completedAt: new Date() },
+      });
+      return;
+    }
+
+    this.logger.log(`Enqueued ${enqueued} billing jobs for run ${run.id}`);
   }
 
   derivePeriodKey(subscriptionId: string, billingDate: Date): string {
