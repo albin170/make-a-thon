@@ -1,12 +1,12 @@
 services:
   # Backend API Web Service on Render
   - type: web
-    name: brightloop-api
+    name: brightloop-sms-api
     env: node
     plan: free
-    rootDir: apps/api
-    buildCommand: npm install && npx prisma db push --schema=../../prisma/schema.prisma && npx ts-node ../../prisma/seed.ts && npm run build
-    startCommand: npm run start
+    rootDir: ""
+    buildCommand: npm install && npx prisma generate && npm run build --workspace=apps/api
+    startCommand: npx prisma db push --accept-data-loss && npx ts-node prisma/seed.ts && npm run start --workspace=apps/api
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
@@ -22,4 +22,4 @@ services:
       - key: REFRESH_TOKEN_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        sync: false # e.g. https://brightloop-sms.vercel.app
+        sync: false

@@ -39,12 +39,29 @@ async function bootstrap() {
   // API versioning
   app.enableVersioning({ type: VersioningType.URI });
 
-  // CORS
+    // CORS
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    "https://web-smoky-chi-41.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001",
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.includes("localhost")
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Idempotency-Key'],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Idempotency-Key", "x-custom-tenant-id"],
   });
 
   // Global validation pipe
