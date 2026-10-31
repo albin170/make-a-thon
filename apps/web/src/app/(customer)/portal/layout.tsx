@@ -41,7 +41,14 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
               <span className="h-6 w-6 rounded bg-emerald-600 flex items-center justify-center text-xs">BL</span>
               Customer Portal
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Self-Service Account</p>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-xs text-slate-400">Role: <strong className="text-emerald-400">{user.role}</strong></span>
+              {(user.role === "ADMIN" || user.role === "STAFF") && (
+                <Link href="/dashboard" className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded font-medium">
+                  → Admin Panel
+                </Link>
+              )}
+            </div>
           </div>
 
           <nav className="p-3 space-y-1">

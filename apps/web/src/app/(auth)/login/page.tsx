@@ -87,6 +87,36 @@ export default function LoginPage() {
           </button>
         </form>
 
+        <div className="mt-6 pt-6 border-t border-slate-200">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5 text-center">
+            Demo Quick-Fill Roles
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => { setEmail("admin@brightloop.com"); setPassword("Admin@12345"); }}
+              className="px-2 py-1.5 text-xs font-medium rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition text-center"
+            >
+              Admin
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEmail("staff1@brightloop.com"); setPassword("Staff@12345"); }}
+              className="px-2 py-1.5 text-xs font-medium rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition text-center"
+            >
+              Staff
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEmail("acme@example.com"); setPassword("Customer@12345"); }}
+              className="px-2 py-1.5 text-xs font-medium rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition text-center"
+            >
+              Customer
+            </button>
+          </div>
+        </div>
+
+
         <p className="mt-6 text-center text-xs text-slate-500">
           New customer?{' '}
           <Link href="/register" className="text-blue-600 hover:underline">

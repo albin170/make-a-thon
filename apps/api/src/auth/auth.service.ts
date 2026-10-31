@@ -14,6 +14,50 @@ import { addMinutes } from 'date-fns';
 
 @Injectable()
 export class AuthService {
+
+  async onModuleInit() {
+    try {
+      const adminCount = await this.prisma.user.count({ where: { role: "ADMIN" } });
+      if (adminCount === 0) {
+        this.logger.log("No ADMIN user found. Bootstrapping initial system users...");
+        const adminHash = await argon2.hash("Admin@12345", { type: argon2.argon2id });
+        await this.prisma.user.upsert({
+          where: { emailNormalized: "admin@brightloop.com" },
+          update: { role: "ADMIN" },
+          create: {
+            id: uuidv4(),
+            email: "admin@brightloop.com",
+            emailNormalized: "admin@brightloop.com",
+            passwordHash: adminHash,
+            firstName: "System",
+            lastName: "Admin",
+            role: "ADMIN",
+            status: "ACTIVE",
+          },
+        });
+
+        const staffHash = await argon2.hash("Staff@12345", { type: argon2.argon2id });
+        await this.prisma.user.upsert({
+          where: { emailNormalized: "staff1@brightloop.com" },
+          update: { role: "STAFF" },
+          create: {
+            id: uuidv4(),
+            email: "staff1@brightloop.com",
+            emailNormalized: "staff1@brightloop.com",
+            passwordHash: staffHash,
+            firstName: "Alice",
+            lastName: "Staff",
+            role: "STAFF",
+            status: "ACTIVE",
+          },
+        });
+        this.logger.log("Admin and Staff bootstrap completed.");
+      }
+    } catch (e) {
+      this.logger.error("Failed to bootstrap users", e);
+    }
+  }
+
   private readonly logger = new Logger(AuthService.name);
 
   constructor(

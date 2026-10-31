@@ -22,7 +22,7 @@
     "db:seed": "npx ts-node prisma/seed.ts",
     "db:studio": "npx prisma studio",
     "build:render": "npm install --include=dev && prisma generate --schema=prisma/schema.prisma && npm run build --workspace=apps/api",
-    "start:render": "node apps/api/dist/main.js"
+    "start:render": "npx prisma db push --schema=prisma/schema.prisma --accept-data-loss && npx ts-node prisma/seed.ts && node apps/api/dist/main.js"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
