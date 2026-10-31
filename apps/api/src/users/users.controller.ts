@@ -17,7 +17,11 @@ import {
   ApiOperation,
   ApiQuery,
 } from '@nestjs/swagger';
-import { UsersService, CreateStaffDto, UpdateUserDto } from './users.service';
+import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { CreateStaffDto } from './dto/create-staff.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -40,6 +44,17 @@ export class UsersController {
   createStaffAccount(@Body() dto: CreateStaffDto) {
     return this.usersService.createStaffAccount(dto);
   }
+  
+  /**
+   * POST /v1/users
+   * Create a new ADMIN or STAFF account (ADMIN only)
+   */
+  @Post()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: "Create an admin or staff user (ADMIN only)" })
+  createUserAccount(@Body() dto: CreateUserDto) {
+    return this.usersService.createUserAccount(dto);
+  }
 
   /**
    * GET /v1/users
@@ -54,19 +69,9 @@ export class UsersController {
   @ApiQuery({ name: 'role', required: false, enum: UserRole })
   @ApiQuery({ name: 'status', required: false, enum: UserStatus })
   listUsers(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-    @Query('role') role?: UserRole,
-    @Query('status') status?: UserStatus,
+    @Query() query: ListUsersQueryDto,
   ) {
-    return this.usersService.listUsers({
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      search,
-      role,
-      status,
-    });
+    return this.usersService.listUsers(query);
   }
 
   /**

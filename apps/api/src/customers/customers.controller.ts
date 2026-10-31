@@ -1,13 +1,13 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Body,
   Query,
   UseGuards,
   Request,
-  ForbiddenException,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import {
@@ -16,18 +16,24 @@ import {
   ApiOperation,
   ApiQuery,
 } from '@nestjs/swagger';
-import { CustomersService, UpdateCustomerDto } from './customers.service';
+import { CustomersService, CreateCustomerDto } from './customers.service';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { ListCustomersQueryDto } from './dto/list-customers-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { CustomerOwnershipService } from '../common/authorization/customer-ownership.service';
 
 @ApiTags('customers')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller({ path: 'customers', version: '1' })
 export class CustomersController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly ownership: CustomerOwnershipService,
+  ) {}
 
   /**
    * GET /v1/customers
@@ -41,17 +47,20 @@ export class CustomersController {
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'currency', required: false, type: String })
   listCustomers(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-    @Query('currency') currency?: string,
+    @Query() query: ListCustomersQueryDto,
   ) {
-    return this.customersService.listCustomers({
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      search,
-      currency,
-    });
+    return this.customersService.listCustomers(query);
+  }
+
+  /**
+   * POST /v1/customers
+   * Create a new customer (ADMIN, STAFF only)
+   */
+  @Post()
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @ApiOperation({ summary: 'Create a new customer (ADMIN, STAFF)' })
+  createCustomer(@Body() dto: CreateCustomerDto) {
+    return this.customersService.createCustomer(dto);
   }
 
   /**
@@ -68,11 +77,7 @@ export class CustomersController {
     const { user } = req;
 
     if (user.role === UserRole.CUSTOMER) {
-      // Verify the CUSTOMER owns this customer record
-      const ownRecord = await this.customersService.getCustomerByUserId(user.id);
-      if (!ownRecord || ownRecord.id !== id) {
-        throw new ForbiddenException('You do not have access to this customer record');
-      }
+      await this.ownership.assertCustomerOwnsCustomer(user.id, id);
     }
 
     return this.customersService.getCustomer(id);

@@ -15,13 +15,17 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { InvoicesService } from './invoices.service';
+import { CustomerOwnershipService } from '../common/authorization/customer-ownership.service';
 
 @ApiTags('invoices')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller({ path: 'invoices', version: '1' })
 export class InvoicesController {
-  constructor(private readonly invoicesService: InvoicesService) {}
+  constructor(
+    private readonly invoicesService: InvoicesService,
+    private readonly ownership: CustomerOwnershipService,
+  ) {}
 
   @Post()
   @Roles('ADMIN', 'STAFF')
@@ -33,9 +37,9 @@ export class InvoicesController {
   @Get()
   @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'List invoices (filtered by customer for CUSTOMER role)' })
-  findAll(@Query() query: any, @Request() req: any) {
+  async findAll(@Query() query: any, @Request() req: any) {
     if (req.user.role === 'CUSTOMER') {
-      query.customerId = req.user.customerId || req.user.id;
+      query.customerId = await this.ownership.getCustomerIdForUser(req.user.id);
     }
     return this.invoicesService.listInvoices(query);
   }
@@ -43,7 +47,10 @@ export class InvoicesController {
   @Get(':id')
   @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'Get invoice details by ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    if (req.user.role === 'CUSTOMER') {
+      await this.ownership.assertCustomerOwnsInvoice(req.user.id, id);
+    }
     return this.invoicesService.getInvoice(id);
   }
 
@@ -64,7 +71,10 @@ export class InvoicesController {
   @Post(':id/generate-pdf')
   @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'Trigger invoice PDF generation' })
-  generatePdf(@Param('id', ParseUUIDPipe) id: string) {
+  async generatePdf(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    if (req.user.role === 'CUSTOMER') {
+      await this.ownership.assertCustomerOwnsInvoice(req.user.id, id);
+    }
     return this.invoicesService.generatePdf(id);
   }
 

@@ -6,6 +6,15 @@ import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, UserStatus } from '@prisma/client';
 
+export interface CreateUserDto {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role?: UserRole;
+}
+
 export interface CreateStaffDto {
   email: string;
   password: string;
@@ -32,6 +41,28 @@ export interface UpdateUserDto {
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
+
+  
+  async createUserAccount(dto: CreateUserDto) {
+    const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
+    const emailNormalized = dto.email.toLowerCase().trim();
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email.trim(),
+        emailNormalized,
+        passwordHash,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone: dto.phone ?? null,
+        role: dto.role || UserRole.STAFF,
+        status: UserStatus.ACTIVE,
+      },
+    });
+
+    const { passwordHash: _ph, ...result } = user;
+    return result;
+  }
 
   async createStaffAccount(dto: CreateStaffDto) {
     const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });

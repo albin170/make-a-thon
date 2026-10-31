@@ -13,41 +13,30 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('JWT_SECRET') || process.env.JWT_SECRET || 'brightloop_default_jwt_secret_fallback_key_2026',
+      secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
     });
   }
 
   async validate(payload: any) {
     const session = await this.prisma.userSession.findUnique({
       where: { id: payload.sessionId },
+      include: { user: { include: { customer: true } } },
     });
-    if (!session || session.revokedAt || session.expiresAt < new Date()) {
+    if (
+      !session ||
+      session.userId !== payload.sub ||
+      session.revokedAt ||
+      session.expiresAt < new Date() ||
+      session.user.status !== 'ACTIVE'
+    ) {
       throw new UnauthorizedException('Session expired or revoked.');
     }
-
-    // Subscription and invoice endpoints are keyed by Customer.id, while the
-    // JWT subject is User.id. Resolve the relation here so every protected
-    // customer-scoped endpoint can apply the correct ownership filter.
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        customer: { select: { id: true } },
-      },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('User not found.');
-    }
-
     return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
+      id: session.user.id,
+      email: session.user.email,
+      role: session.user.role,
+      customerId: session.user.customer?.id,
       sessionId: payload.sessionId,
-      customerId: user.customer?.id,
     };
   }
 }

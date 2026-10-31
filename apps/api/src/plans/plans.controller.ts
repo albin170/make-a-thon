@@ -17,6 +17,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PlanStatus } from '@prisma/client';
+import { CreatePlanDto } from './dto/create-plan.dto';
+import { UpdatePlanDto } from './dto/update-plan.dto';
+import { ListPlansQueryDto } from './dto/list-plans-query.dto';
 
 @ApiTags('plans')
 @ApiBearerAuth()
@@ -28,23 +31,15 @@ export class PlansController {
   @Get()
   @Roles('ADMIN', 'STAFF')
   listPlans(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('search') search?: string,
-    @Query('status') status?: PlanStatus,
+    @Query() query: ListPlansQueryDto,
   ) {
-    return this.plansService.listPlans({
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
-      search,
-      status,
-    });
+    return this.plansService.listPlans(query);
   }
 
   @Post()
   @Roles('ADMIN')
   @HttpCode(HttpStatus.CREATED)
-  createPlan(@Body() dto: any) {
+  createPlan(@Body() dto: CreatePlanDto) {
     return this.plansService.createPlan(dto);
   }
 
@@ -56,7 +51,7 @@ export class PlansController {
 
   @Patch(':id')
   @Roles('ADMIN')
-  updatePlan(@Param('id') id: string, @Body() dto: any) {
+  updatePlan(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
     return this.plansService.updatePlan(id, dto);
   }
 
