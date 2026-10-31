@@ -1,0 +1,806 @@
+// Prisma schema for Brightloop Subscription Management System
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  STAFF
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ProductType {
+  SERVICE
+  PHYSICAL
+  DIGITAL
+  SUBSCRIPTION
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum BillingInterval {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
+  CANCELLED
+  EXPIRED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+  CANCELLED
+  VOID
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH
+  CHEQUE
+  ONLINE
+  OTHER
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum TaxType {
+  INCLUSIVE
+  EXCLUSIVE
+}
+
+enum BillingRunStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  LOGIN
+  LOGOUT
+  PASSWORD_RESET
+  PAYMENT_RECORDED
+  INVOICE_SENT
+  SUBSCRIPTION_PAUSED
+  SUBSCRIPTION_RESUMED
+  SUBSCRIPTION_CLOSED
+  BILLING_RUN
+}
+
+// ─────────────────────────────────────────────
+// Users & Authentication
+// ─────────────────────────────────────────────
+
+model User {
+  id                String     @id @default(uuid())
+  email             String     @unique
+  emailNormalized   String     @unique
+  passwordHash      String
+  role              UserRole   @default(CUSTOMER)
+  status            UserStatus @default(ACTIVE)
+  firstName         String
+  lastName          String
+  phone             String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  lastLoginAt       DateTime?
+
+  customer          Customer?
+  passwordResets    PasswordResetToken[]
+  auditLogsActor    AuditLog[]         @relation("AuditActor")
+  sessions          UserSession[]
+
+  @@index([email])
+  @@index([emailNormalized])
+  @@index([role])
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  revokedAt    DateTime?
+  ipAddress    String?
+  userAgent    String?
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshToken])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(uuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Customers
+// ─────────────────────────────────────────────
+
+model Customer {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  companyName     String?
+  vatNumber       String?
+  billingAddress  Json?
+  shippingAddress Json?
+  currency        String   @default("USD")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quotations      Quotation[]
+  subscriptions   Subscription[]
+  invoices        Invoice[]
+  payments        Payment[]
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Products & Variants
+// ─────────────────────────────────────────────
+
+model Product {
+  id          String        @id @default(uuid())
+  name        String
+  type        ProductType   @default(SERVICE)
+  description String?
+  salesPrice  Decimal       @db.Decimal(18, 4)
+  costPrice   Decimal       @db.Decimal(18, 4) @default(0)
+  currency    String        @default("USD")
+  notes       String?
+  status      ProductStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  variants        ProductVariant[]
+  planProducts    PlanProduct[]
+  quotationLines  QuotationLine[]
+  subscriptionLines SubscriptionLine[]
+  invoiceLines    InvoiceLine[]
+
+  @@index([status])
+  @@index([name])
+}
+
+model ProductVariant {
+  id             String   @id @default(uuid())
+  productId      String
+  name           String
+  description    String?
+  priceAdjustment Decimal @db.Decimal(18, 4) @default(0)
+  currency       String   @default("USD")
+  sku            String?
+  isActive       Boolean  @default(true)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quotationLines QuotationLine[]
+  subscriptionLines SubscriptionLine[]
+
+  @@index([productId])
+}
+
+// ─────────────────────────────────────────────
+// Plans
+// ─────────────────────────────────────────────
+
+model Plan {
+  id                    String          @id @default(uuid())
+  name                  String
+  description           String?
+  billingInterval       BillingInterval @default(MONTHLY)
+  intervalCount         Int             @default(1)
+  currency              String          @default("USD")
+  status                PlanStatus      @default(ACTIVE)
+  availableFrom         DateTime?
+  availableTo           DateTime?
+  autoCloseOnEnd        Boolean         @default(false)
+  allowEarlyClosure     Boolean         @default(true)
+  allowPause            Boolean         @default(false)
+  allowRenewal          Boolean         @default(true)
+  minQuantity           Int?
+  maxQuantity           Int?
+  trialDays             Int             @default(0)
+  notes                 String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  products              PlanProduct[]
+  subscriptions         Subscription[]
+
+  @@index([status])
+}
+
+model PlanProduct {
+  id         String   @id @default(uuid())
+  planId     String
+  productId  String
+  unitPrice  Decimal  @db.Decimal(18, 4)
+  minQty     Int      @default(1)
+  maxQty     Int?
+  sortOrder  Int      @default(0)
+
+  plan       Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@unique([planId, productId])
+  @@index([planId])
+}
+
+// ─────────────────────────────────────────────
+// Tax Rules
+// ─────────────────────────────────────────────
+
+model TaxRule {
+  id            String   @id @default(uuid())
+  name          String
+  code          String   @unique
+  rate          Decimal  @db.Decimal(8, 4)
+  type          TaxType  @default(EXCLUSIVE)
+  description   String?
+  jurisdiction  String?
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  quotationLineTaxes   QuotationLineTax[]
+  invoiceLineTaxes     InvoiceLineTax[]
+
+  @@index([isActive])
+  @@index([code])
+}
+
+// ─────────────────────────────────────────────
+// Discount Rules
+// ─────────────────────────────────────────────
+
+model DiscountRule {
+  id               String       @id @default(uuid())
+  name             String
+  code             String       @unique
+  type             DiscountType @default(PERCENTAGE)
+  value            Decimal      @db.Decimal(18, 4)
+  minPurchaseAmount Decimal?    @db.Decimal(18, 4)
+  minQuantity      Int?
+  productId        String?
+  isSubscriptionWide Boolean    @default(false)
+  startDate        DateTime?
+  endDate          DateTime?
+  maxUsage         Int?
+  usageCount       Int          @default(0)
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  usages           DiscountUsage[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model DiscountUsage {
+  id             String   @id @default(uuid())
+  discountRuleId String
+  subscriptionId String?
+  invoiceId      String?
+  usedAt         DateTime @default(now())
+  amount         Decimal  @db.Decimal(18, 4)
+
+  discountRule   DiscountRule @relation(fields: [discountRuleId], references: [id])
+
+  @@index([discountRuleId])
+}
+
+// ─────────────────────────────────────────────
+// Quotation Templates
+// ─────────────────────────────────────────────
+
+model QuotationTemplate {
+  id             String   @id @default(uuid())
+  name           String
+  description    String?
+  validityDays   Int      @default(30)
+  currency       String   @default("USD")
+  paymentTerms   String?
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lines          QuotationTemplateLine[]
+  quotations     Quotation[]
+
+  @@index([isActive])
+}
+
+model QuotationTemplateLine {
+  id          String   @id @default(uuid())
+  templateId  String
+  productId   String?
+  description String?
+  quantity    Decimal  @db.Decimal(18, 4) @default(1)
+  unitPrice   Decimal  @db.Decimal(18, 4)
+  sortOrder   Int      @default(0)
+
+  template    QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+// ─────────────────────────────────────────────
+// Quotations
+// ─────────────────────────────────────────────
+
+model Quotation {
+  id              String          @id @default(uuid())
+  number          String          @unique
+  customerId      String
+  templateId      String?
+  status          QuotationStatus @default(DRAFT)
+  validFrom       DateTime        @default(now())
+  validTo         DateTime
+  currency        String          @default("USD")
+  paymentTerms    String?
+  subtotal        Decimal         @db.Decimal(18, 4) @default(0)
+  discountTotal   Decimal         @db.Decimal(18, 4) @default(0)
+  taxTotal        Decimal         @db.Decimal(18, 4) @default(0)
+  total           Decimal         @db.Decimal(18, 4) @default(0)
+  notes           String?
+  internalNotes   String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  sentAt          DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+
+  customer        Customer          @relation(fields: [customerId], references: [id])
+  template        QuotationTemplate? @relation(fields: [templateId], references: [id])
+  lines           QuotationLine[]
+  subscriptions   Subscription[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([number])
+}
+
+model QuotationLine {
+  id             String   @id @default(uuid())
+  quotationId    String
+  productId      String?
+  variantId      String?
+  description    String
+  quantity       Decimal  @db.Decimal(18, 4)
+  unitPrice      Decimal  @db.Decimal(18, 4)
+  discountAmount Decimal  @db.Decimal(18, 4) @default(0)
+  subtotal       Decimal  @db.Decimal(18, 4)
+  taxAmount      Decimal  @db.Decimal(18, 4) @default(0)
+  total          Decimal  @db.Decimal(18, 4)
+  sortOrder      Int      @default(0)
+
+  quotation      Quotation      @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product        Product?       @relation(fields: [productId], references: [id])
+  variant        ProductVariant? @relation(fields: [variantId], references: [id])
+  taxes          QuotationLineTax[]
+
+  @@index([quotationId])
+}
+
+model QuotationLineTax {
+  id            String  @id @default(uuid())
+  lineId        String
+  taxRuleId     String
+  taxName       String
+  taxRate       Decimal @db.Decimal(8, 4)
+  taxType       TaxType
+  taxAmount     Decimal @db.Decimal(18, 4)
+
+  line          QuotationLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  taxRule       TaxRule       @relation(fields: [taxRuleId], references: [id])
+
+  @@index([lineId])
+}
+
+// ─────────────────────────────────────────────
+// Subscriptions
+// ─────────────────────────────────────────────
+
+model Subscription {
+  id              String             @id @default(uuid())
+  number          String             @unique
+  customerId      String
+  planId          String
+  quotationId     String?
+  status          SubscriptionStatus @default(DRAFT)
+  startDate       DateTime
+  endDate         DateTime?
+  nextBillingDate DateTime?
+  paymentTerms    String?
+  currency        String             @default("USD")
+  notes           String?
+  pausedAt        DateTime?
+  resumedAt       DateTime?
+  closedAt        DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  customer        Customer           @relation(fields: [customerId], references: [id])
+  plan            Plan               @relation(fields: [planId], references: [id])
+  quotation       Quotation?         @relation(fields: [quotationId], references: [id])
+  lines           SubscriptionLine[]
+  invoices        Invoice[]
+  billingPeriods  BillingPeriod[]
+  auditEvents     SubscriptionAuditEvent[]
+
+  @@index([customerId])
+  @@index([planId])
+  @@index([status])
+  @@index([nextBillingDate])
+  @@index([number])
+}
+
+model SubscriptionLine {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  productId      String?
+  variantId      String?
+  description    String
+  quantity       Decimal  @db.Decimal(18, 4)
+  unitPrice      Decimal  @db.Decimal(18, 4)
+  currency       String   @default("USD")
+  sortOrder      Int      @default(0)
+
+  subscription   Subscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  product        Product?        @relation(fields: [productId], references: [id])
+  variant        ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([subscriptionId])
+}
+
+model SubscriptionAuditEvent {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  actorId        String?
+  action         String
+  fromStatus     String?
+  toStatus       String?
+  reason         String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+}
+
+// ─────────────────────────────────────────────
+// Billing Engine
+// ─────────────────────────────────────────────
+
+model BillingRun {
+  id             String           @id @default(uuid())
+  status         BillingRunStatus @default(PENDING)
+  runDate        DateTime
+  totalProcessed Int              @default(0)
+  totalSucceeded Int              @default(0)
+  totalFailed    Int              @default(0)
+  totalSkipped   Int              @default(0)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  errorMessage   String?
+  createdAt      DateTime         @default(now())
+
+  periods        BillingPeriod[]
+
+  @@index([status])
+  @@index([runDate])
+}
+
+model BillingPeriod {
+  id                String    @id @default(uuid())
+  subscriptionId    String
+  billingRunId      String?
+  periodKey         String    @unique
+  periodStart       DateTime
+  periodEnd         DateTime
+  billedAt          DateTime?
+  status            String    @default("PENDING")
+  invoiceId         String?   @unique
+  errorMessage      String?
+  retryCount        Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id])
+  billingRun        BillingRun?  @relation(fields: [billingRunId], references: [id])
+  invoice           Invoice?     @relation(fields: [invoiceId], references: [id])
+
+  @@unique([subscriptionId, periodKey])
+  @@index([subscriptionId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────
+// Invoices
+// ─────────────────────────────────────────────
+
+model Invoice {
+  id              String        @id @default(uuid())
+  number          String        @unique
+  customerId      String
+  subscriptionId  String?
+  status          InvoiceStatus @default(DRAFT)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  invoiceDate     DateTime      @default(now())
+  dueDate         DateTime
+  currency        String        @default("USD")
+  paymentTerms    String?
+  subtotal        Decimal       @db.Decimal(18, 4) @default(0)
+  discountTotal   Decimal       @db.Decimal(18, 4) @default(0)
+  taxTotal        Decimal       @db.Decimal(18, 4) @default(0)
+  total           Decimal       @db.Decimal(18, 4) @default(0)
+  amountPaid      Decimal       @db.Decimal(18, 4) @default(0)
+  amountDue       Decimal       @db.Decimal(18, 4) @default(0)
+  notes           String?
+  pdfPath         String?
+  pdfGeneratedAt  DateTime?
+  sentAt          DateTime?
+  billingName     String?
+  billingAddress  Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  confirmedAt     DateTime?
+  cancelledAt     DateTime?
+
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  subscription    Subscription?  @relation(fields: [subscriptionId], references: [id])
+  lines           InvoiceLine[]
+  payments        PaymentAllocation[]
+  billingPeriod   BillingPeriod?
+  deliveries      InvoiceDelivery[]
+
+  @@index([customerId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([dueDate])
+  @@index([number])
+}
+
+model InvoiceLine {
+  id             String   @id @default(uuid())
+  invoiceId      String
+  productId      String?
+  description    String
+  quantity       Decimal  @db.Decimal(18, 4)
+  unitPrice      Decimal  @db.Decimal(18, 4)
+  discountAmount Decimal  @db.Decimal(18, 4) @default(0)
+  subtotal       Decimal  @db.Decimal(18, 4)
+  taxAmount      Decimal  @db.Decimal(18, 4) @default(0)
+  total          Decimal  @db.Decimal(18, 4)
+  sortOrder      Int      @default(0)
+
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product        Product? @relation(fields: [productId], references: [id])
+  taxes          InvoiceLineTax[]
+
+  @@index([invoiceId])
+}
+
+model InvoiceLineTax {
+  id            String  @id @default(uuid())
+  lineId        String
+  taxRuleId     String
+  taxName       String
+  taxRate       Decimal @db.Decimal(8, 4)
+  taxType       TaxType
+  taxAmount     Decimal @db.Decimal(18, 4)
+
+  line          InvoiceLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  taxRule       TaxRule     @relation(fields: [taxRuleId], references: [id])
+
+  @@index([lineId])
+}
+
+model InvoiceDelivery {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  method      String   @default("EMAIL")
+  status      String   @default("PENDING")
+  recipient   String
+  sentAt      DateTime?
+  failedAt    DateTime?
+  errorMsg    String?
+  attempts    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+// ─────────────────────────────────────────────
+// Payments
+// ─────────────────────────────────────────────
+
+model Payment {
+  id            String        @id @default(uuid())
+  number        String        @unique
+  customerId    String
+  method        PaymentMethod @default(BANK_TRANSFER)
+  amount        Decimal       @db.Decimal(18, 4)
+  currency      String        @default("USD")
+  paymentDate   DateTime
+  reference     String?
+  notes         String?
+  unallocated   Decimal       @db.Decimal(18, 4) @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  reversedAt    DateTime?
+
+  customer      Customer            @relation(fields: [customerId], references: [id])
+  allocations   PaymentAllocation[]
+
+  @@index([customerId])
+  @@index([paymentDate])
+  @@index([number])
+}
+
+model PaymentAllocation {
+  id          String   @id @default(uuid())
+  paymentId   String
+  invoiceId   String
+  amount      Decimal  @db.Decimal(18, 4)
+  allocatedAt DateTime @default(now())
+  reversedAt  DateTime?
+  notes       String?
+
+  payment     Payment  @relation(fields: [paymentId], references: [id])
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+
+  @@unique([paymentId, invoiceId])
+  @@index([paymentId])
+  @@index([invoiceId])
+}
+
+// ─────────────────────────────────────────────
+// Outbox (Transactional Email / Notifications)
+// ─────────────────────────────────────────────
+
+model NotificationOutbox {
+  id          String   @id @default(uuid())
+  type        String
+  payload     Json
+  status      String   @default("PENDING")
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  scheduledAt DateTime @default(now())
+  processedAt DateTime?
+  failedAt    DateTime?
+  errorMsg    String?
+  createdAt   DateTime @default(now())
+
+  @@index([status, scheduledAt])
+}
+
+// ─────────────────────────────────────────────
+// Idempotency Keys
+// ─────────────────────────────────────────────
+
+model IdempotencyKey {
+  id         String   @id @default(uuid())
+  key        String   @unique
+  endpoint   String
+  response   Json?
+  statusCode Int?
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([key])
+  @@index([expiresAt])
+}
+
+// ─────────────────────────────────────────────
+// Audit Logs
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  actorId      String?
+  actorEmail   String?
+  action       AuditAction
+  entityType   String
+  entityId     String?
+  before       Json?
+  after        Json?
+  ipAddress    String?
+  userAgent    String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+
+  actor        User?       @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
