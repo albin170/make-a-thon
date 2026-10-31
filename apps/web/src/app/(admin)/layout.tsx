@@ -52,7 +52,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span className="h-6 w-6 rounded bg-blue-600 flex items-center justify-center text-xs">BL</span>
               Brightloop SMS
             </h2>
-            <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider">{user.role} Workspace</p>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-xs text-slate-400">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5"></span>
+                {user.role} Workspace
+              </span>
+              <Link href="/portal/dashboard" className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
+                Customer View ↗
+              </Link>
+            </div>
           </div>
 
           <nav className="p-3 space-y-1 overflow-y-auto">
