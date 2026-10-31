@@ -20,8 +20,8 @@
     "db:studio": "npx prisma studio"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "concurrently": "^8.2.2",
     "typescript": "^5.3.3"
   }
 }
-
