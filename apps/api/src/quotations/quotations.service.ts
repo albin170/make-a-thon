@@ -222,14 +222,7 @@ export class QuotationsService {
       });
 
       await tx.subscription.create({
-        data: {
-          number: subNumber,
-          status: 'DRAFT',
-          quotationId: id,
-          customerId: quotation.customerId,
-          currency: quotation.currency,
-          createdById: actorId,
-        },
+        data: { id: require('uuid').v4(), number: subNumber, status: 'DRAFT' as any, quotationId: id, customerId: quotation.customerId, planId: quotation.lines[0]?.productId || quotation.id, startDate: new Date(), currency: quotation.currency } as any,
       });
 
       return updatedQuotation;
@@ -273,3 +266,5 @@ export class QuotationsService {
     return { expiredCount: result.count };
   }
 }
+
+

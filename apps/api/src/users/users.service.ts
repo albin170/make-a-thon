@@ -2,7 +2,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, UserStatus } from '@prisma/client';
 
@@ -34,7 +34,7 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createStaffAccount(dto: CreateStaffDto) {
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
     const emailNormalized = dto.email.toLowerCase().trim();
 
     const user = await this.prisma.user.create({
@@ -165,3 +165,4 @@ export class UsersService {
     return user;
   }
 }
+

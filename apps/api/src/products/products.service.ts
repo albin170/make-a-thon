@@ -46,13 +46,13 @@ export class ProductsService {
 
   async create(dto: CreateProductDto) {
     return this.prisma.product.create({
-      data: { id: uuidv4(), ...dto },
+      data: { id: uuidv4(), ...dto, type: dto.type as any, status: dto.status as any },
     });
   }
 
   async update(id: string, dto: UpdateProductDto) {
     await this.findOne(id);
-    return this.prisma.product.update({ where: { id }, data: dto });
+    return this.prisma.product.update({ where: { id }, data: { ...dto, type: dto.type as any, status: dto.status as any } });
   }
 
   async remove(id: string) {
@@ -76,4 +76,5 @@ export class ProductsService {
     });
   }
 }
+
 

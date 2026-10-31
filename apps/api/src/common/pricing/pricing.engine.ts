@@ -110,7 +110,7 @@ export class PricingEngine {
       });
     }
 
-    const grandTotal = subtotalMinor - discountMinor + taxMinor;
+    let exclusiveTaxMinor = 0n; for (const l of lines) { for (const t of l.taxRates || []) { if (t.type === 'EXCLUSIVE') { const rMinor = toMinorUnits(t.rate); const sAfterDisc = (BigInt(Math.round(l.quantity * 10000)) * toMinorUnits(l.unitPrice)) / SCALE - (l.discountAmount ? toMinorUnits(l.discountAmount) : 0n); exclusiveTaxMinor += (sAfterDisc * rMinor) / (SCALE * 100n); } } }; const grandTotal = subtotalMinor - discountMinor + exclusiveTaxMinor;
 
     return {
       lines: calculatedLines,
@@ -121,4 +121,5 @@ export class PricingEngine {
     };
   }
 }
+
 

@@ -52,3 +52,4 @@ jobs:
 
       - name: Run Integration Tests
         run: npx jest tests/integration/auth.test.ts tests/integration/pricing.test.ts tests/integration/billing.test.ts tests/integration/payments.test.ts
+
