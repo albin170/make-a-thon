@@ -1,38 +1,47 @@
 // ─── API Client ───────────────────────────────────────────────────────────────
 // Typed fetch wrapper. Attaches the current tab's Bearer token automatically.
 
+const DEFAULT_API_URL = 'https://brightloop-sms-api.onrender.com/api/v1';
+
 export function getBaseUrl(): string {
-  // Treat an absent/blank env var as unset — an empty string must never
-  // degrade to a same-origin POST (Next 404 "Cannot POST /auth/register").
-  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-    // Guard against a misconfigured env var pointing at a KNOWN FRONTEND
-    // host (e.g. the Render web service) instead of the API.
-    try {
-      const host = new URL(envUrl).host;
-      const knownFrontendHosts = ['make-a-thon.onrender.com', 'web-smoky-chi-41.vercel.app'];
-      if (knownFrontendHosts.includes(host)) {
-        return DEFAULT_API_URL.replace(/\/+$/, '');
+  // If running in browser: verify hostname
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+    if (!isLocalhost) {
+      // Deployed client: strictly prohibit localhost URLs
+      const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+      if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+        try {
+          const host = new URL(envUrl).host;
+          // Guard against misconfiguration pointing at frontend web hosts
+          if (host === hostname || ['make-a-thon.onrender.com', 'web-smoky-chi-41.vercel.app'].includes(host)) {
+            return DEFAULT_API_URL;
+          }
+          return envUrl.replace(/\/+$/, '');
+        } catch {
+          return DEFAULT_API_URL;
+        }
       }
-    } catch {
-      // not an absolute URL — fall through
+      return DEFAULT_API_URL;
+    }
+  }
+
+  // Server-side or local environment:
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (envUrl) {
+    if (process.env.NODE_ENV === 'production' && (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
+      return DEFAULT_API_URL;
     }
     return envUrl.replace(/\/+$/, '');
   }
 
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      // Deployed: a localhost/blank env var is a misconfiguration —
-      // the code path below (localhost dev) cannot be right here.
-      return DEFAULT_API_URL.replace(/\/+$/, '');
-    }
+  if (process.env.NODE_ENV === 'production') {
+    return DEFAULT_API_URL;
   }
 
-  return (envUrl || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+  return 'http://localhost:3001/api/v1';
 }
-
-const DEFAULT_API_URL = 'https://brightloop-sms-api.onrender.com/api/v1';
 
 export const BASE_URL = getBaseUrl();
 
