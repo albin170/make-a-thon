@@ -57,7 +57,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="admin@brightloop.com"
+              placeholder="admin@gmail.com"
             />
           </div>
 
@@ -94,14 +94,14 @@ export default function LoginPage() {
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => { setEmail("admin@brightloop.com"); setPassword("Admin@12345"); }}
+              onClick={() => { setEmail("admin@gmail.com"); setPassword("test123"); }}
               className="px-2 py-1.5 text-xs font-medium rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition text-center"
             >
               Admin
             </button>
             <button
               type="button"
-              onClick={() => { setEmail("staff1@brightloop.com"); setPassword("Staff@12345"); }}
+              onClick={() => { setEmail("staff@gmail.com"); setPassword("test123"); }}
               className="px-2 py-1.5 text-xs font-medium rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition text-center"
             >
               Staff

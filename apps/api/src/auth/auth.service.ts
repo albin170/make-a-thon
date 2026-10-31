@@ -17,44 +17,66 @@ export class AuthService {
 
   async onModuleInit() {
     try {
-      const adminCount = await this.prisma.user.count({ where: { role: "ADMIN" } });
-      if (adminCount === 0) {
-        this.logger.log("No ADMIN user found. Bootstrapping initial system users...");
-        const adminHash = await argon2.hash("Admin@12345", { type: argon2.argon2id });
-        await this.prisma.user.upsert({
-          where: { emailNormalized: "admin@brightloop.com" },
-          update: { role: "ADMIN" },
-          create: {
-            id: uuidv4(),
-            email: "admin@brightloop.com",
-            emailNormalized: "admin@brightloop.com",
-            passwordHash: adminHash,
-            firstName: "System",
-            lastName: "Admin",
-            role: "ADMIN",
-            status: "ACTIVE",
-          },
-        });
+      this.logger.log("Syncing database user accounts...");
+      const adminPass = await argon2.hash("test123", { type: argon2.argon2id });
+      const staffPass = await argon2.hash("test123", { type: argon2.argon2id });
 
-        const staffHash = await argon2.hash("Staff@12345", { type: argon2.argon2id });
-        await this.prisma.user.upsert({
-          where: { emailNormalized: "staff1@brightloop.com" },
-          update: { role: "STAFF" },
-          create: {
-            id: uuidv4(),
-            email: "staff1@brightloop.com",
-            emailNormalized: "staff1@brightloop.com",
-            passwordHash: staffHash,
-            firstName: "Alice",
-            lastName: "Staff",
-            role: "STAFF",
-            status: "ACTIVE",
-          },
-        });
-        this.logger.log("Admin and Staff bootstrap completed.");
-      }
+      // Clean unwanted / test placeholder accounts if present
+      await this.prisma.user.deleteMany({
+        where: {
+          email: {
+            in: ["testdemo_check@example.com", "admin@brightloop.com", "staff2@brightloop.com"]
+          }
+        }
+      });
+
+      // Upsert admin: admin@gmail.com / test123
+      await this.prisma.user.upsert({
+        where: { emailNormalized: "admin@gmail.com" },
+        update: {
+          passwordHash: adminPass,
+          role: "ADMIN",
+          status: "ACTIVE",
+          firstName: "admin",
+          lastName: "User",
+        },
+        create: {
+          id: uuidv4(),
+          email: "admin@gmail.com",
+          emailNormalized: "admin@gmail.com",
+          passwordHash: adminPass,
+          firstName: "admin",
+          lastName: "User",
+          role: "ADMIN",
+          status: "ACTIVE",
+        },
+      });
+
+      // Upsert staff: staff@gmail.com / test123
+      await this.prisma.user.upsert({
+        where: { emailNormalized: "staff@gmail.com" },
+        update: {
+          passwordHash: staffPass,
+          role: "STAFF",
+          status: "ACTIVE",
+          firstName: "staff",
+          lastName: "User",
+        },
+        create: {
+          id: uuidv4(),
+          email: "staff@gmail.com",
+          emailNormalized: "staff@gmail.com",
+          passwordHash: staffPass,
+          firstName: "staff",
+          lastName: "User",
+          role: "STAFF",
+          status: "ACTIVE",
+        },
+      });
+
+      this.logger.log("Admin (admin@gmail.com / test123) and Staff (staff@gmail.com / test123) are ready.");
     } catch (e) {
-      this.logger.error("Failed to bootstrap users", e);
+      this.logger.error("User bootstrap error", e);
     }
   }
 
@@ -260,7 +282,13 @@ export class AuthService {
   }
 
   private validatePasswordStrength(password: string) {
-    if (password.length < 9) {
+    if (!password || password.length < 6) {
+      throw new BadRequestException("Password must be at least 6 characters long.");
+    }
+    return true;
+  }
+  private _oldValidation(password: string) {
+    if (password.length < 6) {
       throw new BadRequestException('Password must be at least 9 characters long.');
     }
     if (!/[A-Z]/.test(password)) {

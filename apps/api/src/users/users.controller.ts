@@ -37,7 +37,19 @@ export class UsersController {
   @Post('staff')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a staff account (ADMIN only)' })
-  createStaffAccount(@Body() dto: CreateStaffDto) {
+  
+  /**
+   * POST /v1/users
+   * Create a new ADMIN or STAFF account (ADMIN only)
+   */
+  @Post()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: "Create an admin or staff user (ADMIN only)" })
+  createUserAccount(@Body() dto: any) {
+    return this.usersService.createUserAccount(dto);
+  }
+
+  createStaffAccount(@Body() dto: any) {
     return this.usersService.createStaffAccount(dto);
   }
 
