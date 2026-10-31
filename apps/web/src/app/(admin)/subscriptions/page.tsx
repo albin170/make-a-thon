@@ -57,6 +57,7 @@ export default function SubscriptionsPage() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreateSubscription = async (e: React.FormEvent) => {
