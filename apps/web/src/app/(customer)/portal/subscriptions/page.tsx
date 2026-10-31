@@ -154,7 +154,7 @@ export default function CustomerSubscriptionsPage() {
                     ? new Date(s.nextBillingDate).toLocaleDateString()
                     : s.startDate
                     ? new Date(s.startDate).toLocaleDateString()
-                    : 'Jul 25, 2026';
+                    : 'N/A';
 
                   return (
                     <tr key={s.id} className="hover:bg-white/[0.03] transition duration-150">
