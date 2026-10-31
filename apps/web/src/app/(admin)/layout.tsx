@@ -52,6 +52,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar */}
       <aside className="w-64 glass-panel border-r border-white/10 flex flex-col justify-between shrink-0 z-20">
         <div>
+          {/* Logo */}
+          <div className="p-5 border-b border-white/10 flex items-center justify-between">
+            <Link href="/dashboard" className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.083-8-12.356-8-5.096 0-5.096 8 0 8 5.273 0 7.261-8 12.356-8z" />
+                </svg>
+              </div>
+              <span className="text-xl font-bold tracking-tight text-white">Brightloop</span>
+            </Link>
+          </div>
+
+          {/* Quick Workspace Switcher */}
+          <div className="px-3 pt-3">
+            <div className="p-2 rounded-xl bg-white/[0.04] border border-white/10">
+              <div className="flex items-center justify-between text-[11px] mb-1.5">
+                <span className="text-slate-400 font-medium">WORKSPACE</span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                  {user.role}
                 </span>
               </div>
               <div className="grid grid-cols-1 gap-1.5 text-xs">
