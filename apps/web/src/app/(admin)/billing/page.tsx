@@ -73,7 +73,7 @@ export default function BillingPage() {
               </tr>
             ) : runs.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-slate-400">No billing runs recorded yet. Click "Trigger Billing Run" to execute now.</td>
+                <td colSpan={7} className="px-6 py-8 text-center text-slate-400">No billing runs recorded yet. Click &quot;Trigger Billing Run&quot; to execute now.</td>
               </tr>
             ) : (
               runs.map((r) => (
