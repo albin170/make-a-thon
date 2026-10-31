@@ -1,18 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 
 export default function CustomerSubscriptionsPage() {
   const [subs, setSubs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  // Cancel Modal State
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
+  const [cancelReason, setCancelReason] = useState('No longer needed');
+  const [processing, setProcessing] = useState(false);
 
   const loadSubs = async () => {
     try {
       setLoading(true);
       const res = await apiClient.get<any>('/subscriptions');
       setSubs(res.data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load subscriptions', err);
     } finally {
       setLoading(false);
@@ -25,82 +33,265 @@ export default function CustomerSubscriptionsPage() {
 
   const handlePause = async (id: string) => {
     try {
+      setError('');
       await apiClient.patch(`/subscriptions/${id}/pause`, { reason: 'Customer requested pause' });
+      setSuccess('Subscription paused successfully. You will not be billed while paused.');
       await loadSubs();
     } catch (err: any) {
-      alert(err?.response?.data?.message || err?.message || 'Failed to pause');
+      setError(err?.response?.data?.message || err?.message || 'Failed to pause subscription');
     }
   };
 
   const handleResume = async (id: string) => {
     try {
+      setError('');
       await apiClient.patch(`/subscriptions/${id}/resume`, {});
+      setSuccess('Subscription resumed successfully. Next billing cycle is active.');
       await loadSubs();
     } catch (err: any) {
-      alert(err?.response?.data?.message || err?.message || 'Failed to resume');
+      setError(err?.response?.data?.message || err?.message || 'Failed to resume subscription');
+    }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelTarget) return;
+    setProcessing(true);
+    setError('');
+
+    try {
+      await apiClient.patch(`/subscriptions/${cancelTarget.id}/close`, {
+        reason: cancelReason || 'Customer self-service cancellation',
+      });
+      setSuccess(`Subscription ${cancelTarget.number || ''} has been cancelled successfully.`);
+      setCancelTarget(null);
+      await loadSubs();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to cancel subscription');
+    } finally {
+      setProcessing(false);
     }
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-2">My Subscriptions</h1>
-      <p className="text-sm text-slate-500 mb-6">Manage your active plans, pausing, and renewal preferences.</p>
+    <div className="space-y-6 pb-10">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">My Subscriptions</h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Manage your active subscription plans, pausing periods, and cancellation preferences.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/portal/dashboard"
+            className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 transition"
+          >
+            ← Back to Dashboard
+          </Link>
+        </div>
+      </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-          <thead className="bg-slate-50 text-slate-600 font-medium">
-            <tr>
-              <th className="px-6 py-3">Subscription #</th>
-              <th className="px-6 py-3">Plan</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3">Next Billing Date</th>
-              <th className="px-6 py-3 text-right">Self-Service Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading ? (
-              <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">Loading...</td></tr>
-            ) : subs.length === 0 ? (
-              <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">You have no active subscriptions.</td></tr>
-            ) : (
-              subs.map((s) => (
-                <tr key={s.id}>
-                  <td className="px-6 py-4 font-mono font-medium text-slate-900">{s.number}</td>
-                  <td className="px-6 py-4 text-slate-700">{s.plan?.name}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${s.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
-                      }`}>
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">
-                    {s.nextBillingDate ? new Date(s.nextBillingDate).toLocaleDateString() : '—'}
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    {s.status === 'ACTIVE' && (
-                      <button
-                        onClick={() => handlePause(s.id)}
-                        className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium py-1 px-2.5 rounded"
-                      >
-                        Pause
-                      </button>
-                    )}
-                    {s.status === 'PAUSED' && (
-                      <button
-                        onClick={() => handleResume(s.id)}
-                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1 px-2.5 rounded"
-                      >
-                        Resume
-                      </button>
-                    )}
+      {/* Success Notification */}
+      {success && (
+        <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>✓</span>
+            <span>{success}</span>
+          </div>
+          <button type="button" onClick={() => setSuccess('')} className="text-slate-400 hover:text-white">✕</button>
+        </div>
+      )}
+
+      {/* Error Notification */}
+      {error && (
+        <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/25 text-red-300 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button type="button" onClick={() => setError('')} className="text-slate-400 hover:text-white">✕</button>
+        </div>
+      )}
+
+      {/* Glassmorphism Subscriptions Table */}
+      <div className="glass-card rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm divide-y divide-white/10">
+            <thead className="bg-white/[0.03] text-slate-400 font-semibold text-xs uppercase tracking-wider">
+              <tr>
+                <th className="px-6 py-4">Subscription #</th>
+                <th className="px-6 py-4">Plan & Billing Cycle</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Next Renewal / Expiry</th>
+                <th className="px-6 py-4 text-right">Self-Service Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping" />
+                      Loading your subscriptions...
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : subs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                    <p>You have no subscriptions registered yet.</p>
+                    <Link href="/portal/plans" className="inline-block mt-4 px-4 py-2 rounded-xl btn-neon text-xs font-bold text-white">
+                      Browse Available Plans →
+                    </Link>
+                  </td>
+                </tr>
+              ) : (
+                subs.map((s) => {
+                  const planName = s.plan?.name || 'Pro Plan';
+                  const interval = s.plan?.billingInterval || 'Monthly';
+                  const dateDisplay = s.nextBillingDate
+                    ? new Date(s.nextBillingDate).toLocaleDateString()
+                    : s.startDate
+                    ? new Date(s.startDate).toLocaleDateString()
+                    : 'N/A';
+
+                  return (
+                    <tr key={s.id} className="hover:bg-white/[0.03] transition duration-150">
+                      <td className="px-6 py-4 font-mono font-bold text-violet-300 text-xs">
+                        {s.number || 'SUB-000001'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-semibold text-white">{planName}</p>
+                        <p className="text-xs text-slate-400">Billed {interval.toLowerCase()}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                            s.status === 'ACTIVE'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                              : s.status === 'PAUSED'
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/25'
+                              : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              s.status === 'ACTIVE' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
+                            }`}
+                          />
+                          {s.status === 'CLOSED' ? 'CANCELLED' : s.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-mono text-slate-300">
+                        {dateDisplay}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {s.status === 'ACTIVE' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handlePause(s.id)}
+                                className="px-2.5 py-1 rounded-xl bg-amber-600/20 hover:bg-amber-600/35 text-amber-300 text-xs font-medium border border-amber-500/30 transition"
+                              >
+                                Pause
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCancelTarget(s)}
+                                className="px-2.5 py-1 rounded-xl bg-rose-600/20 hover:bg-rose-600/35 text-rose-300 text-xs font-semibold border border-rose-500/30 transition flex items-center gap-1"
+                              >
+                                <span>Cancel Subscription</span>
+                              </button>
+                            </>
+                          )}
+                          {s.status === 'PAUSED' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleResume(s.id)}
+                                className="px-2.5 py-1 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 text-xs font-medium border border-emerald-500/30 transition"
+                              >
+                                Resume
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCancelTarget(s)}
+                                className="px-2.5 py-1 rounded-xl bg-rose-600/20 hover:bg-rose-600/35 text-rose-300 text-xs font-semibold border border-rose-500/30 transition flex items-center gap-1"
+                              >
+                                <span>Cancel Subscription</span>
+                              </button>
+                            </>
+                          )}
+                          {s.status === 'CLOSED' && (
+                            <span className="text-xs text-slate-500 italic">Cancelled</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Cancel Subscription Confirmation Modal */}
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+          <div className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-8 border border-rose-500/30 shadow-2xl relative">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-2xl mx-auto mb-4 border border-rose-500/30">
+              ⚠️
+            </div>
+
+            <div className="text-center mb-5">
+              <h3 className="text-lg font-bold text-white">Cancel Subscription?</h3>
+              <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
+                Are you sure you want to cancel your{' '}
+                <strong className="text-white">{cancelTarget.plan?.name || 'Pro Plan'}</strong> subscription?
+                Your recurring billing will stop immediately upon confirmation.
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <label className="block text-xs font-semibold text-slate-300">
+                Reason for Cancellation (optional):
+              </label>
+              <select
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl glass-input text-white bg-slate-900"
+              >
+                <option value="No longer needed">No longer needed</option>
+                <option value="Switching to another tier">Switching to another tier</option>
+                <option value="Temporary pause was preferred">Temporary pause was preferred</option>
+                <option value="Too expensive">Pricing / budget reasons</option>
+                <option value="Other">Other feedback</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setCancelTarget(null)}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition"
+              >
+                Keep Subscription
+              </button>
+              <button
+                type="button"
+                disabled={processing}
+                onClick={handleConfirmCancel}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition disabled:opacity-50"
+              >
+                {processing ? 'Cancelling...' : 'Confirm Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

@@ -1,5 +1,5 @@
 // ─── API Client ───────────────────────────────────────────────────────────────
-// Typed fetch wrapper. Attaches Bearer token from localStorage automatically.
+// Typed fetch wrapper. Attaches the current tab's Bearer token automatically.
 
 export function getBaseUrl(): string {
   // Treat an absent/blank env var as unset — an empty string must never
@@ -49,22 +49,22 @@ export class ApiError extends Error {
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('access_token')
+  return sessionStorage.getItem('access_token')
 }
 
 function setTokens(access: string, refresh: string) {
-  localStorage.setItem('access_token', access)
-  localStorage.setItem('refresh_token', refresh)
+  sessionStorage.setItem('access_token', access)
+  sessionStorage.setItem('refresh_token', refresh)
 }
 
 export function clearTokens() {
-  localStorage.removeItem('access_token')
-  localStorage.removeItem('refresh_token')
-  localStorage.removeItem('user')
+  sessionStorage.removeItem('access_token')
+  sessionStorage.removeItem('refresh_token')
+  sessionStorage.removeItem('user')
 }
 
 async function refreshAccessToken(): Promise<string | null> {
-  const refresh = localStorage.getItem('refresh_token')
+  const refresh = sessionStorage.getItem('refresh_token')
   if (!refresh) return null
   try {
     const res = await fetch(`${getBaseUrl()}/auth/refresh`, {
