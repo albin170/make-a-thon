@@ -15,13 +15,17 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { QuotationsService } from './quotations.service';
+import { CustomerOwnershipService } from '../common/authorization/customer-ownership.service';
 
 @ApiTags('quotations')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller({ path: 'quotations', version: '1' })
 export class QuotationsController {
-  constructor(private readonly quotationsService: QuotationsService) { }
+  constructor(
+    private readonly quotationsService: QuotationsService,
+    private readonly ownership: CustomerOwnershipService,
+  ) { }
 
   @Post()
   @Roles('ADMIN', 'STAFF')
@@ -33,9 +37,9 @@ export class QuotationsController {
   @Get()
   @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'List quotations (filtered by customer for CUSTOMER role)' })
-  findAll(@Query() query: any, @Request() req: any) {
+  async findAll(@Query() query: any, @Request() req: any) {
     if (req.user.role === 'CUSTOMER') {
-      query.customerId = req.user.customerId || req.user.id;
+      query.customerId = await this.ownership.getCustomerIdForUser(req.user.id);
     }
     return this.quotationsService.listQuotations(query);
   }
@@ -43,7 +47,10 @@ export class QuotationsController {
   @Get(':id')
   @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'Get quotation details by ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    if (req.user.role === 'CUSTOMER') {
+      await this.ownership.assertCustomerOwnsQuotation(req.user.id, id);
+    }
     return this.quotationsService.getQuotation(id);
   }
 
@@ -57,14 +64,20 @@ export class QuotationsController {
   @Patch(':id/accept')
   @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'Accept quotation and convert to draft subscription' })
-  accept(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+  async accept(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    if (req.user.role === 'CUSTOMER') {
+      await this.ownership.assertCustomerOwnsQuotation(req.user.id, id);
+    }
     return this.quotationsService.acceptQuotation(id, req.user?.id);
   }
 
   @Patch(':id/reject')
   @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   @ApiOperation({ summary: 'Reject quotation' })
-  reject(@Param('id', ParseUUIDPipe) id: string) {
+  async reject(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    if (req.user.role === 'CUSTOMER') {
+      await this.ownership.assertCustomerOwnsQuotation(req.user.id, id);
+    }
     return this.quotationsService.rejectQuotation(id);
   }
 }

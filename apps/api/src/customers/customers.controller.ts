@@ -8,7 +8,6 @@ import {
   Query,
   UseGuards,
   Request,
-  ForbiddenException,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import {
@@ -24,13 +23,17 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { CustomerOwnershipService } from '../common/authorization/customer-ownership.service';
 
 @ApiTags('customers')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller({ path: 'customers', version: '1' })
 export class CustomersController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly ownership: CustomerOwnershipService,
+  ) {}
 
   /**
    * GET /v1/customers
@@ -74,11 +77,7 @@ export class CustomersController {
     const { user } = req;
 
     if (user.role === UserRole.CUSTOMER) {
-      // Verify the CUSTOMER owns this customer record
-      const ownRecord = await this.customersService.getCustomerByUserId(user.id);
-      if (!ownRecord || ownRecord.id !== id) {
-        throw new ForbiddenException('You do not have access to this customer record');
-      }
+      await this.ownership.assertCustomerOwnsCustomer(user.id, id);
     }
 
     return this.customersService.getCustomer(id);
