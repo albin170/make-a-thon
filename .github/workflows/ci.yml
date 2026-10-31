@@ -23,6 +23,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint Web App
+        run: npm run lint --workspace=apps/web
+
       - name: Build Next.js Web App
         run: npm run build --workspace=apps/web
         env:
@@ -46,6 +49,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Lint API
+        run: npm run lint --workspace=apps/api
 
       - name: Build API
         run: npm run build --workspace=apps/api
@@ -74,6 +80,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Lint Worker
+        run: npm run lint --workspace=apps/worker
 
       - name: Build Worker
         run: npm run build --workspace=apps/worker
