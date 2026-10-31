@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import * as argon2 from 'argon2';
+import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ListCustomersQuery {
@@ -6,6 +8,18 @@ export interface ListCustomersQuery {
   limit?: number;
   search?: string;
   currency?: string;
+}
+
+export interface CreateCustomerDto {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password?: string;
+  companyName?: string;
+  vatNumber?: string;
+  currency?: string;
+  notes?: string;
 }
 
 export interface UpdateCustomerDto {
@@ -160,4 +174,45 @@ export class CustomersService {
 
     return customer;
   }
+
+  async createCustomer(dto: CreateCustomerDto) {
+    const emailNormalized = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { emailNormalized } });
+    if (existing) {
+      throw new ConflictException("A user with this email already exists.");
+    }
+
+    const defaultPassword = dto.password || "Customer@123";
+    const passwordHash = await argon2.hash(defaultPassword, { type: argon2.argon2id });
+    const newCustomerId = uuidv4();
+    const newUserId = uuidv4();
+
+    const user = await this.prisma.user.create({
+      data: {
+        id: newUserId,
+        email: dto.email.trim(),
+        emailNormalized,
+        passwordHash,
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
+        phone: dto.phone?.trim(),
+        role: "CUSTOMER",
+        customer: {
+          create: {
+            id: newCustomerId,
+            companyName: dto.companyName?.trim(),
+            vatNumber: dto.vatNumber?.trim(),
+            currency: dto.currency || "USD",
+            notes: dto.notes?.trim(),
+          },
+        },
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    return user.customer;
+  }
+
 }

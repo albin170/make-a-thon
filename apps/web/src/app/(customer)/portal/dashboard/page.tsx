@@ -36,24 +36,39 @@ export default function CustomerDashboardPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Greeting Header Row matching Image 2 top-right */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Greeting Header Row with Pro Member / Upgrade Ribbon */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
             Hello, {user?.firstName || 'John'}! <span className="inline-block animate-waving-hand">👋</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">Here&apos;s an overview of your subscriptions.</p>
+          <p className="text-sm text-slate-400 mt-1">Here&apos;s an overview of your active subscriptions and plan features.</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-2 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Active Member
-          </span>
+        {/* Upgrade to Pro Ribbon Banner on Customer Panel */}
+        <div className="glass-card px-5 py-3.5 rounded-2xl flex items-center justify-between gap-6 border-violet-500/30 bg-gradient-to-r from-violet-900/30 to-indigo-900/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-600/30 text-violet-300 flex items-center justify-center text-xl shrink-0 border border-violet-400/30">
+              👑
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white tracking-wide">Pro Member</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+              <p className="text-[11px] text-slate-300">Your plan is active until Jul 25, 2026</p>
+            </div>
+          </div>
+          <Link
+            href="/portal/subscriptions"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-violet-500/30 transition shrink-0"
+          >
+            Upgrade Plan →
+          </Link>
         </div>
       </div>
 
-      {/* 4 Cards matching Image 2 top-right */}
+      {/* 4 Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* Card 1: Active Subscriptions */}
         <div className="glass-card glass-card-hover p-5 rounded-2xl flex flex-col justify-between">
@@ -112,7 +127,7 @@ export default function CustomerDashboardPage() {
         </div>
       </div>
 
-      {/* Main Grid: Your Subscription Overview Chart + Quick Actions */}
+      {/* Main Grid: Your Subscription Overview Chart + Upgrade to Pro Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Your Subscription Overview Chart */}
         <div className="lg:col-span-8 glass-card p-6 rounded-3xl relative">
@@ -184,8 +199,39 @@ export default function CustomerDashboardPage() {
           </div>
         </div>
 
-        {/* Quick Actions matching Image 2 top-right */}
-        <div className="lg:col-span-4 glass-card p-6 rounded-3xl flex flex-col justify-between">
+        {/* Upgrade to Pro / Your Plan Card (in User Panel) */}
+        <div className="lg:col-span-4 glass-card p-6 rounded-3xl flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-[#12182d] to-[#0d1222] border-violet-500/25">
+          <div className="flex items-center gap-2 text-violet-400 text-xs font-bold uppercase tracking-wider">
+            <span>💎</span> Your Plan
+          </div>
+
+          <div className="my-3">
+            <h3 className="text-2xl font-extrabold text-white tracking-tight">Pro Plan</h3>
+            <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
+              Advanced features for your growing needs, with automated renewals and premium support.
+            </p>
+          </div>
+
+          {/* 3D Glass Crown Graphic representation */}
+          <div className="my-2 p-5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center relative">
+            <div className="w-20 h-20 rounded-full bg-violet-600/20 blur-xl absolute" />
+            <div className="relative text-4xl filter drop-shadow-[0_0_15px_rgba(168,85,247,0.7)] animate-bounce">
+              👑
+            </div>
+          </div>
+
+          <Link
+            href="/portal/subscriptions"
+            className="w-full py-3 rounded-xl btn-neon text-xs font-bold text-center block mt-2"
+          >
+            Upgrade Plan →
+          </Link>
+        </div>
+      </div>
+
+      {/* Bottom Grid: Quick Actions + Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="lg:col-span-6 glass-card p-6 rounded-3xl">
           <h3 className="text-base font-bold text-white tracking-tight mb-4">Quick Actions</h3>
 
           <div className="space-y-3">
@@ -210,31 +256,31 @@ export default function CustomerDashboardPage() {
               </div>
               <span className="text-xs text-violet-400">→</span>
             </Link>
-
-            <div
-              className="w-full p-3.5 rounded-2xl glass-card glass-card-hover flex items-center justify-between border-white/10 cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">⚙️</span>
-                <span className="text-xs font-semibold text-white">Update Profile</span>
-              </div>
-              <span className="text-xs text-violet-400">→</span>
-            </div>
           </div>
+        </div>
 
-          {/* Recent Activity */}
-          <div className="mt-5 pt-4 border-t border-white/10">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-300">Recent Activity</span>
-              <span className="text-[10px] text-slate-500">2h ago</span>
-            </div>
-            <div className="p-3 rounded-xl bg-white/[0.04] border border-white/5 flex items-center gap-3">
-              <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs shrink-0">
+        <div className="lg:col-span-6 glass-card p-6 rounded-3xl flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold text-white tracking-tight">Recent Activity</h3>
+            <span className="text-[10px] text-slate-500">2h ago</span>
+          </div>
+          <div className="space-y-3">
+            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs shrink-0">
                 ✓
               </div>
               <div>
                 <p className="text-xs font-semibold text-white">Subscription renewed</p>
-                <p className="text-[11px] text-slate-400">Pro Plan • Jul 25, 2026</p>
+                <p className="text-[11px] text-slate-400">Pro Plan • Active until Jul 25, 2026</p>
+              </div>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs shrink-0">
+                💳
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white">Payment of $49.00 processed</p>
+                <p className="text-[11px] text-slate-400">Invoice #INV-2025-006</p>
               </div>
             </div>
           </div>
