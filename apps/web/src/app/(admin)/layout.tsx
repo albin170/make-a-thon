@@ -73,18 +73,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   {user.role}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-1.5 text-xs">
+              <div className="grid grid-cols-1 gap-1.5 text-xs">
                 <Link
                   href="/staff/dashboard"
                   className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-center transition flex items-center justify-center gap-1"
                 >
-                  <span>💼</span> Staff
-                </Link>
-                <Link
-                  href="/portal/dashboard"
-                  className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-center transition flex items-center justify-center gap-1"
-                >
-                  <span>👤</span> Portal
+                  <span>💼</span> Staff Workspace
                 </Link>
               </div>
             </div>
