@@ -1,7 +1,23 @@
 // ─── API Client ───────────────────────────────────────────────────────────────
 // Typed fetch wrapper. Attaches Bearer token from localStorage automatically.
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1'
+export function getBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/+$/, '');
+  }
+
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return 'https://brightloop-sms-api.onrender.com/api/v1';
+    }
+  }
+
+  return (envUrl || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+}
+
+export const BASE_URL = getBaseUrl();
 
 export class ApiError extends Error {
   constructor(
@@ -34,7 +50,7 @@ async function refreshAccessToken(): Promise<string | null> {
   const refresh = localStorage.getItem('refresh_token')
   if (!refresh) return null
   try {
-    const res = await fetch(`${BASE_URL}/auth/refresh`, {
+    const res = await fetch(`${getBaseUrl()}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: refresh }),
@@ -60,7 +76,7 @@ async function request<T>(
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
+  const res = await fetch(`${getBaseUrl()}${path}`, { ...options, headers })
 
   // Auto-refresh on 401
   if (res.status === 401 && retry) {
@@ -359,7 +375,7 @@ export const invoicesApi = {
   send: (id: string) => api.post<Invoice>(`/invoices/${id}/send`, {}),
   downloadPdf: async (id: string) => {
     const token = getToken()
-    const res = await fetch(`${BASE_URL}/invoices/${id}/pdf`, {
+    const res = await fetch(`${getBaseUrl()}/invoices/${id}/pdf`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!res.ok) throw new ApiError(res.status, 'Failed to download PDF')
