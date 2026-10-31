@@ -57,9 +57,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5"></span>
                 {user.role} Workspace
               </span>
-              <Link href="/portal/dashboard" className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
-                Customer View ↗
-              </Link>
             </div>
           </div>
 
