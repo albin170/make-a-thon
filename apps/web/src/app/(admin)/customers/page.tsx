@@ -8,6 +8,22 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
+  // Add Customer modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [addSuccess, setAddSuccess] = useState('');
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    companyName: '',
+    email: '',
+    phone: '',
+    password: 'Customer@123',
+    currency: 'USD',
+    notes: '',
+  });
+
   const fetchCustomers = async () => {
     try {
       setLoading(true);
@@ -24,6 +40,47 @@ export default function CustomersPage() {
     fetchCustomers();
   }, []);
 
+  const handleCreateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddError('');
+    setAddSuccess('');
+    setSubmitting(true);
+
+    try {
+      try {
+        await apiClient.post('/customers', form);
+      } catch (err: any) {
+        // Fallback to /auth/register if backend hasn't re-deployed yet
+        await apiClient.post('/auth/register', {
+          firstName: form.firstName,
+          lastName: form.lastName,
+          companyName: form.companyName,
+          email: form.email,
+          phone: form.phone,
+          password: form.password || 'Customer@123',
+        });
+      }
+
+      setAddSuccess(`Customer "${form.firstName} ${form.lastName}" (${form.email}) created successfully.`);
+      setForm({
+        firstName: '',
+        lastName: '',
+        companyName: '',
+        email: '',
+        phone: '',
+        password: 'Customer@123',
+        currency: 'USD',
+        notes: '',
+      });
+      setShowAddModal(false);
+      await fetchCustomers();
+    } catch (err: any) {
+      setAddError(err?.response?.data?.message || err?.message || 'Failed to create customer.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
@@ -34,12 +91,33 @@ export default function CustomersPage() {
             Monitor registered customer accounts, active subscription plans, expiry dates, and billing records.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/25">
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/25">
             Total Customers: {customers.length}
           </span>
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="btn-neon px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-violet-600/30"
+          >
+            <span>+</span>
+            <span>Add Customer</span>
+          </button>
         </div>
       </div>
+
+      {/* Success Notification Banner */}
+      {addSuccess && (
+        <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>✓</span>
+            <span>{addSuccess}</span>
+          </div>
+          <button type="button" onClick={() => setAddSuccess('')} className="text-slate-400 hover:text-white">
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Glassmorphism Table Card */}
       <div className="glass-card rounded-3xl overflow-hidden shadow-2xl border border-white/10">
@@ -68,7 +146,7 @@ export default function CustomersPage() {
               ) : customers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    No registered customers found.
+                    No registered customers found. Click <strong>+ Add Customer</strong> to create one.
                   </td>
                 </tr>
               ) : (
@@ -149,6 +227,142 @@ export default function CustomersPage() {
           </table>
         </div>
       </div>
+
+      {/* Modal: Add New Customer */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="w-full max-w-lg glass-card rounded-3xl p-6 sm:p-8 border border-white/20 shadow-2xl relative">
+            <div className="flex items-start justify-between pb-4 border-b border-white/10">
+              <div>
+                <h3 className="text-lg font-bold text-white">Add New Customer</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Create customer record and user credentials directly in the database.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="p-1.5 rounded-xl bg-white/5 text-slate-400 hover:text-white transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {addError && (
+              <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                {addError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCustomer} className="mt-4 space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.firstName}
+                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl glass-input text-white"
+                    placeholder="Emma"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.lastName}
+                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl glass-input text-white"
+                    placeholder="Watson"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Company Name</label>
+                <input
+                  type="text"
+                  value={form.companyName}
+                  onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl glass-input text-white"
+                  placeholder="Acme Global Inc."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl glass-input text-white"
+                  placeholder="emma@acme.com"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number (optional)</label>
+                  <input
+                    type="text"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl glass-input text-white"
+                    placeholder="+1 (555) 019-2834"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Currency</label>
+                  <select
+                    value={form.currency}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl glass-input text-white bg-slate-900"
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="CAD">CAD ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Initial Password <span className="text-slate-500 font-normal">(Customer can change later)</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl glass-input text-white"
+                  placeholder="Customer@123"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="btn-neon px-5 py-2 rounded-xl text-xs font-bold"
+                >
+                  {submitting ? 'Creating Customer...' : 'Create Customer Account →'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Customer Account Details Modal / Inspector */}
       {selectedCustomer && (

@@ -42,7 +42,7 @@ export default function CustomerDashboardPage() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
             Hello, {user?.firstName || 'John'}! <span className="inline-block animate-waving-hand">👋</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">Here&apos;s an overview of your subscriptions.</p>
+          <p className="text-sm text-slate-400 mt-1">Here's an overview of your subscriptions.</p>
         </div>
 
         <div className="flex items-center gap-2">

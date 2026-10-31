@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Body,
@@ -16,7 +17,7 @@ import {
   ApiOperation,
   ApiQuery,
 } from '@nestjs/swagger';
-import { CustomersService, UpdateCustomerDto } from './customers.service';
+import { CustomersService, UpdateCustomerDto, CreateCustomerDto } from './customers.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -52,6 +53,17 @@ export class CustomersController {
       search,
       currency,
     });
+  }
+
+  /**
+   * POST /v1/customers
+   * Create a new customer (ADMIN, STAFF only)
+   */
+  @Post()
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @ApiOperation({ summary: 'Create a new customer (ADMIN, STAFF)' })
+  createCustomer(@Body() dto: CreateCustomerDto) {
+    return this.customersService.createCustomer(dto);
   }
 
   /**
