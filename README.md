@@ -18,7 +18,7 @@ Core areas of the application include:
 - **Taxes and discounts** — centralize pricing calculations and discount rules.
 - **Reporting** — provide a view of subscription and billing activity.
 - **Authentication and access control** — support protected API routes and role-based access.
-- **Email and invoice files** — support email delivery and invoice document/storage integrations.
+- **Email and invoice files** — support email delivery and invoice document/storage integrations..
 
 Availability and completeness of individual features depend on their current implementation and configuration.
 
