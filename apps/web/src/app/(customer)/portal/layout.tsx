@@ -17,6 +17,8 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
   const [user, setUser] = useState<any>(null);
   const [proBannerClosed, setProBannerClosed] = useState(false);
   const [proBannerMinimized, setProBannerMinimized] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const u = getStoredUser();
@@ -29,9 +31,19 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
     }
   }, [router]);
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   const handleLogout = () => {
     clearAuthSession();
     router.replace('/login');
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    router.push(`/portal/subscriptions?search=${encodeURIComponent(searchQuery.trim())}`);
   };
 
   if (!user) return null;
@@ -42,10 +54,22 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
       <div className="absolute top-[-15%] left-[-10%] w-[600px] h-[600px] rounded-full bg-violet-600/15 blur-[160px] pointer-events-none" />
       <div className="absolute bottom-[-15%] right-[-10%] w-[600px] h-[600px] rounded-full bg-cyan-600/15 blur-[160px] pointer-events-none" />
 
-      {/* Customer Sidebar matching Image 2 top-right */}
-      <aside className="w-64 glass-panel border-r border-white/10 flex flex-col justify-between shrink-0 z-20">
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
+        />
+      )}
+
+      {/* Responsive Customer Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 glass-panel border-r border-white/10 flex flex-col justify-between shrink-0 transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div>
-          {/* Logo */}
+          {/* Logo & Mobile Close button */}
           <div className="p-5 border-b border-white/10 flex items-center justify-between">
             <Link href="/portal/dashboard" className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
@@ -55,6 +79,15 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
               </div>
               <span className="text-xl font-bold tracking-tight text-white">Brightloop</span>
             </Link>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+              aria-label="Close navigation menu"
+            >
+              ✕
+            </button>
           </div>
 
           {/* Role pill indicator */}
@@ -93,25 +126,28 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
           {/* Upgrade to Pro Card Widget with Minimize & Close option */}
           {!proBannerClosed && (
             proBannerMinimized ? (
-              <div className="mx-3 mb-3 p-2 rounded-xl bg-gradient-to-r from-violet-950/50 to-indigo-950/50 border border-violet-500/25 flex items-center justify-between text-xs">
-                <button
-                  type="button"
-                  onClick={() => setProBannerMinimized(false)}
-                  className="flex items-center gap-1.5 text-violet-300 font-semibold hover:text-white transition"
-                  title="Expand Upgrade to Pro"
-                >
-                  <span>💎</span>
-                  <span>Pro Upgrade</span>
-                  <span className="text-[10px]">▲</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProBannerClosed(true)}
-                  className="text-slate-400 hover:text-white p-1 transition"
-                  title="Close banner"
-                >
-                  ✕
-                </button>
+              <div className="p-2 mx-3 mb-3 rounded-xl bg-white/[0.03] border border-violet-500/20 flex items-center justify-between">
+                <span className="text-xs font-semibold text-violet-300 flex items-center gap-1.5">
+                  💎 Pro Tier
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setProBannerMinimized(false)}
+                    className="text-[11px] text-slate-400 hover:text-white px-1 py-0.5 rounded"
+                    title="Expand banner"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProBannerClosed(true)}
+                    className="text-[11px] text-slate-400 hover:text-white px-1 py-0.5 rounded"
+                    title="Close banner"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="p-3 mx-3 mb-3 rounded-2xl bg-gradient-to-br from-violet-900/40 to-indigo-950/40 border border-violet-500/25 p-4 text-center relative overflow-hidden">
@@ -158,7 +194,7 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
               </div>
               <div className="truncate">
                 <p className="text-xs font-semibold text-white truncate">
-                  {user.firstName || 'John'} {user.lastName || 'Doe'}
+                  {user.firstName || 'Customer'} {user.lastName || ''}
                 </p>
                 <p className="text-[11px] text-slate-400 truncate font-medium">Customer</p>
               </div>
@@ -166,6 +202,7 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
             <button
               onClick={handleLogout}
               title="Logout"
+              aria-label="Logout"
               className="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-white/5 transition"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -178,9 +215,22 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
 
       {/* Main content container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
-        <header className="h-16 glass-panel border-b border-white/10 flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center w-full max-w-md">
-            <div className="relative w-full">
+        <header className="h-16 glass-panel border-b border-white/10 flex items-center justify-between px-4 sm:px-6 shrink-0 gap-3">
+          <div className="flex items-center gap-3 w-full max-w-md">
+            {/* Mobile Drawer Trigger */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none"
+              aria-label="Open navigation menu"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            {/* Functional search bar */}
+            <form onSubmit={handleSearchSubmit} className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -188,14 +238,16 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
               </div>
               <input
                 type="text"
-                placeholder="Search subscriptions, invoices..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search subscriptions, invoices (Press Enter)..."
                 className="w-full pl-10 pr-4 py-2 rounded-xl glass-input text-xs text-white placeholder-slate-400"
               />
-            </div>
+            </form>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5">
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="hidden sm:flex px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
               Active Member
             </span>
@@ -205,7 +257,7 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

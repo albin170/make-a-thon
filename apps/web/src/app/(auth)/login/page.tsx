@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { setAuthSession } from '@/lib/auth';
+
+const REMEMBER_EMAIL_KEY = 'brightloop_remember_email';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,23 +18,48 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    try {
+      const savedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY);
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    } catch {
+      // Storage access might be restricted in some iframe/incognito contexts
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // Allow username 'admin' or 'staff' directly, or email
+      // Normalize email only - PRESERVE password exactly as typed (no trimming)
       let submitEmail = email.trim();
       if (submitEmail.toLowerCase() === 'admin') submitEmail = 'admin@gmail.com';
       if (submitEmail.toLowerCase() === 'staff') submitEmail = 'staff@gmail.com';
 
       const res = await apiClient.post<any>('/auth/login', {
         email: submitEmail,
-        password: password.trim(),
+        password: password, // preserved exactly
       });
+
+      // Persist or clear remembered email
+      try {
+        if (rememberMe) {
+          localStorage.setItem(REMEMBER_EMAIL_KEY, submitEmail);
+        } else {
+          localStorage.removeItem(REMEMBER_EMAIL_KEY);
+        }
+      } catch {
+        // ignore storage errors
+      }
+
       setAuthSession(res.accessToken, res.refreshToken, res.user);
 
+      // Routing strictly depends on authenticated server role
       if (res.user.role === 'CUSTOMER') {
         router.push('/portal/dashboard');
       } else if (res.user.role === 'STAFF') {
@@ -44,22 +71,6 @@ export default function LoginPage() {
       setError(err?.response?.data?.message || err?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const setPreset = (userType: 'admin' | 'staff' | 'customer') => {
-    if (userType === 'admin') {
-      setActiveTab('staff');
-      setEmail('admin@gmail.com');
-      setPassword('test123');
-    } else if (userType === 'staff') {
-      setActiveTab('staff');
-      setEmail('staff@gmail.com');
-      setPassword('test123');
-    } else {
-      setActiveTab('customer');
-      setEmail('acme@example.com');
-      setPassword('Customer@12345');
     }
   };
 
@@ -123,8 +134,8 @@ export default function LoginPage() {
                   🛡️
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-white">Secure & Reliable</h4>
-                  <p className="text-xs text-slate-400">Strict RBAC backend guards for Admin, Staff, and Customer portals.</p>
+                  <h4 className="text-sm font-semibold text-white">Secure Role-Based Access</h4>
+                  <p className="text-xs text-slate-400">Strict backend permission enforcement across Admin, Staff, and Customer portals.</p>
                 </div>
               </div>
             </div>
@@ -134,9 +145,9 @@ export default function LoginPage() {
           <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 pt-6 border-t border-white/5 gap-3">
             <p>Brightloop • Subscription Management System © 2026 Brightloop. All rights reserved.</p>
             <div className="flex items-center gap-4 text-slate-400">
-              <span className="hover:text-white cursor-pointer transition">GitHub</span>
-              <span className="hover:text-white cursor-pointer transition">Twitter</span>
-              <span className="hover:text-white cursor-pointer transition">Discord</span>
+              <span className="text-xs">Security Verified</span>
+              <span>•</span>
+              <span className="text-xs">SSL Encrypted</span>
             </div>
           </div>
         </div>
@@ -155,30 +166,35 @@ export default function LoginPage() {
               <p className="text-sm text-slate-400 mt-1">Sign in to continue to your workspace</p>
             </div>
 
-            {/* Role Switcher Pill Tabs */}
-            <div className="flex rounded-xl bg-white/[0.06] p-1 mb-6 border border-white/10">
-              <button
-                type="button"
-                onClick={() => { setActiveTab('customer'); setEmail('acme@example.com'); setPassword('Customer@12345'); }}
-                className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition ${
-                  activeTab === 'customer'
-                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <span>👤</span> Customer
-              </button>
-              <button
-                type="button"
-                onClick={() => { setActiveTab('staff'); setEmail('admin@gmail.com'); setPassword('test123'); }}
-                className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition ${
-                  activeTab === 'staff'
-                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <span>💼</span> Staff / Admin
-              </button>
+            {/* Role Switcher Pill Tabs (Workspace Context) */}
+            <div className="space-y-2 mb-6">
+              <div className="flex rounded-xl bg-white/[0.06] p-1 border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('customer')}
+                  className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition ${
+                    activeTab === 'customer'
+                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>👤</span> Customer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('staff')}
+                  className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition ${
+                    activeTab === 'staff'
+                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>💼</span> Staff / Admin
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 text-center">
+                Permissions are strictly verified on the backend based on your account credentials.
+              </p>
             </div>
 
             {/* Error Message */}
@@ -207,7 +223,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm text-white placeholder-slate-500"
-                    placeholder={activeTab === 'customer' ? 'Enter customer email' : 'admin@gmail.com or admin'}
+                    placeholder={activeTab === 'customer' ? 'Enter customer email' : 'admin@gmail.com or staff@gmail.com'}
                   />
                 </div>
               </div>
@@ -238,7 +254,8 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500 rounded-lg"
                   >
                     {showPassword ? (
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -255,14 +272,14 @@ export default function LoginPage() {
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="rounded border-white/20 bg-slate-900 text-violet-600 focus:ring-0"
                   />
-                  <span>Remember me</span>
+                  <span>Remember my email</span>
                 </label>
               </div>
 
@@ -275,62 +292,15 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Quick Demo Credentials */}
-            <div className="mt-6 pt-5 border-t border-white/10">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center mb-2.5">
-                Quick Demo Presets
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPreset('admin')}
-                  className="px-2 py-1.5 rounded-lg bg-violet-600/15 border border-violet-500/30 text-violet-300 text-xs font-medium hover:bg-violet-600/25 transition text-center"
-                >
-                  Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreset('staff')}
-                  className="px-2 py-1.5 rounded-lg bg-indigo-600/15 border border-indigo-500/30 text-indigo-300 text-xs font-medium hover:bg-indigo-600/25 transition text-center"
-                >
-                  Staff
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreset('customer')}
-                  className="px-2 py-1.5 rounded-lg bg-cyan-600/15 border border-cyan-500/30 text-cyan-300 text-xs font-medium hover:bg-cyan-600/25 transition text-center"
-                >
-                  Customer
-                </button>
-              </div>
-            </div>
-
-            {/* Social SSO Mockups */}
-            <div className="mt-6">
-              <div className="relative flex items-center justify-center mb-4">
-                <div className="border-t border-white/10 w-full" />
-                <span className="bg-[#0e1427] px-3 text-xs text-slate-500 uppercase">or</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2.5">
-                <button type="button" className="flex items-center justify-center py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition">
-                  <span className="text-sm">Google</span>
-                </button>
-                <button type="button" className="flex items-center justify-center py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition">
-                  <span className="text-sm">GitHub</span>
-                </button>
-                <button type="button" className="flex items-center justify-center py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition">
-                  <span className="text-sm">Microsoft</span>
-                </button>
-              </div>
-            </div>
-
             {/* Register Link */}
-            <p className="mt-6 text-center text-xs text-slate-400">
-              Don&apos;t have an account?{' '}
-              <Link href="/register" className="text-violet-400 hover:text-violet-300 font-semibold transition">
-                Register
-              </Link>
-            </p>
+            <div className="mt-8 pt-5 border-t border-white/10 text-center">
+              <p className="text-xs text-slate-400">
+                Don&apos;t have an account?{' '}
+                <Link href="/register" className="text-violet-400 hover:text-violet-300 font-semibold transition ml-1">
+                  Register here
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>
