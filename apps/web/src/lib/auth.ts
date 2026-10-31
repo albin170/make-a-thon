@@ -6,6 +6,10 @@ export function saveSession(accessToken: string, refreshToken: string, user: Use
   localStorage.setItem('user', JSON.stringify(user))
 }
 
+export function setAuthSession(accessToken: string, refreshToken: string, user: any) {
+  saveSession(accessToken, refreshToken, user)
+}
+
 export function getSession(): { user: User; token: string } | null {
   if (typeof window === 'undefined') return null
   const token = localStorage.getItem('access_token')
@@ -22,23 +26,33 @@ export function getUser(): User | null {
   return getSession()?.user ?? null
 }
 
+export function getStoredUser(): any | null {
+  return getUser()
+}
+
 export function isAuthenticated(): boolean {
   return !!getSession()
 }
 
 export function isAdmin(): boolean {
   const user = getUser()
-  return user?.role === 'admin' || user?.role === 'staff'
+  return user?.role === 'admin' || user?.role === 'staff' || (user?.role as any) === 'ADMIN' || (user?.role as any) === 'STAFF'
 }
 
 export function isCustomer(): boolean {
   const user = getUser()
-  return user?.role === 'customer'
+  return user?.role === 'customer' || (user?.role as any) === 'CUSTOMER'
 }
 
 export function logout() {
   clearTokens()
-  window.location.href = '/login'
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login'
+  }
+}
+
+export function clearAuthSession() {
+  clearTokens()
 }
 
 export function requireAuth(redirectTo = '/login') {

@@ -467,3 +467,6 @@ export const settingsApi = {
   get: () => api.get<AppSettings>('/settings'),
   update: (data: Partial<AppSettings>) => api.put<AppSettings>('/settings', data),
 }
+
+export const apiClient = api;
+
