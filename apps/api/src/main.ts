@@ -44,6 +44,7 @@ async function bootstrap() {
   // are always allowed, unknown browser origins are rejected.
   const corsOrigins = [
     'https://web-smoky-chi-41.vercel.app',
+    'https://make-a-thon.onrender.com',
     'http://localhost:3000',
     'http://localhost:3001',
     ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : []),
