@@ -16,6 +16,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { InvoicesService } from './invoices.service';
 import { CustomerOwnershipService } from '../common/authorization/customer-ownership.service';
+import { CreateInvoiceDto } from './dto/create-invoice.dto';
 
 @ApiTags('invoices')
 @ApiBearerAuth()
@@ -30,7 +31,7 @@ export class InvoicesController {
   @Post()
   @Roles('ADMIN', 'STAFF')
   @ApiOperation({ summary: 'Create a new invoice' })
-  create(@Body() dto: any) {
+  create(@Body() dto: CreateInvoiceDto) {
     return this.invoicesService.createInvoice(dto);
   }
 

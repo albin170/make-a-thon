@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { v4 as uuidv4 } from 'uuid';
+import { CreateDiscountRuleDto, UpdateDiscountRuleDto } from './dto/discount-rule.dto';
 
 @Injectable()
 export class DiscountsService {
@@ -14,7 +15,7 @@ export class DiscountsService {
     return this.prisma.discountRule.findMany({ where, orderBy: { createdAt: 'desc' } });
   }
 
-  async createDiscountRule(dto: any) {
+  async createDiscountRule(dto: CreateDiscountRuleDto) {
     return this.prisma.discountRule.create({
       data: {
         id: uuidv4(),
@@ -33,10 +34,25 @@ export class DiscountsService {
     });
   }
 
-  async updateDiscountRule(id: string, dto: any) {
+  async updateDiscountRule(id: string, dto: UpdateDiscountRuleDto) {
     const rule = await this.prisma.discountRule.findUnique({ where: { id } });
     if (!rule) throw new NotFoundException('Discount rule not found');
-    return this.prisma.discountRule.update({ where: { id }, data: dto });
+    return this.prisma.discountRule.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.code !== undefined ? { code: dto.code } : {}),
+        ...(dto.type !== undefined ? { type: dto.type } : {}),
+        ...(dto.value !== undefined ? { value: dto.value } : {}),
+        ...(dto.minPurchaseAmount !== undefined ? { minPurchaseAmount: dto.minPurchaseAmount } : {}),
+        ...(dto.minQuantity !== undefined ? { minQuantity: dto.minQuantity } : {}),
+        ...(dto.productId !== undefined ? { productId: dto.productId } : {}),
+        ...(dto.isSubscriptionWide !== undefined ? { isSubscriptionWide: dto.isSubscriptionWide } : {}),
+        ...(dto.startDate !== undefined ? { startDate: dto.startDate ? new Date(dto.startDate) : null } : {}),
+        ...(dto.endDate !== undefined ? { endDate: dto.endDate ? new Date(dto.endDate) : null } : {}),
+        ...(dto.maxUsage !== undefined ? { maxUsage: dto.maxUsage } : {}),
+      },
+    });
   }
 
   async validateAndConsume(code: string, subtotal: number, subscriptionId?: string) {

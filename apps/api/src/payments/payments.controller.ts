@@ -14,6 +14,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaymentMethod } from '@prisma/client';
+import { RecordPaymentDto } from './dto/record-payment.dto';
+import { AllocatePaymentDto } from './dto/allocate-payment.dto';
 
 @ApiTags('payments')
 @ApiBearerAuth()
@@ -47,16 +49,7 @@ export class PaymentsController {
   @Roles('ADMIN', 'STAFF')
   @ApiOperation({ summary: 'Record a new payment' })
   recordPayment(
-    @Body()
-    body: {
-      customerId: string;
-      method: PaymentMethod;
-      amount: string;
-      currency?: string;
-      paymentDate: string;
-      reference?: string;
-      notes?: string;
-    },
+    @Body() body: RecordPaymentDto,
   ) {
     return this.paymentsService.recordPayment(body);
   }
@@ -80,7 +73,7 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Allocate payment amount to an invoice' })
   allocatePayment(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { invoiceId: string; amount: string; notes?: string },
+    @Body() body: AllocatePaymentDto,
   ) {
     return this.paymentsService.allocatePayment(
       id,

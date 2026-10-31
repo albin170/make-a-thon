@@ -16,6 +16,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { QuotationsService } from './quotations.service';
 import { CustomerOwnershipService } from '../common/authorization/customer-ownership.service';
+import { CreateQuotationDto } from './dto/create-quotation.dto';
 
 @ApiTags('quotations')
 @ApiBearerAuth()
@@ -30,7 +31,7 @@ export class QuotationsController {
   @Post()
   @Roles('ADMIN', 'STAFF')
   @ApiOperation({ summary: 'Create a new quotation' })
-  create(@Body() dto: any) {
+  create(@Body() dto: CreateQuotationDto) {
     return this.quotationsService.createQuotation(dto);
   }
 

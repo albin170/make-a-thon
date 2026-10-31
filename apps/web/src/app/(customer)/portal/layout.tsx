@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { getStoredUser, clearAuthSession } from '@/lib/auth';
+import { apiClient } from '@/lib/api-client';
 
 const navigation = [
   { name: 'Portal Home', href: '/portal/dashboard', icon: '🏠' },
@@ -25,9 +26,13 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
     }
   }, [router]);
 
-  const handleLogout = () => {
-    clearAuthSession();
-    router.replace('/login');
+  const handleLogout = async () => {
+    try {
+      await apiClient.post('/auth/logout', {});
+    } finally {
+      clearAuthSession();
+      router.replace('/login');
+    }
   };
 
   if (!user) return null;

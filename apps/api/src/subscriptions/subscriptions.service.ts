@@ -365,4 +365,128 @@ export class SubscriptionsService {
       return updated;
     });
   }
+
+  async cancelSubscription(id: string, reason?: string, actorId?: string) {
+    const subscription = await this.prisma.subscription.findUnique({ where: { id } });
+    if (!subscription) {
+      throw new NotFoundException(`Subscription ${id} not found`);
+    }
+
+    // Repeated requests return the original cancellation state unchanged.
+    if (subscription.status === SubscriptionStatus.CANCELLED || subscription.cancellationEffectiveAt) {
+      return subscription;
+    }
+
+    if (
+      subscription.status !== SubscriptionStatus.ACTIVE &&
+      subscription.status !== SubscriptionStatus.PAUSED
+    ) {
+      throw new BadRequestException(
+        `Only ACTIVE or PAUSED subscriptions can be cancelled (current: ${subscription.status})`,
+      );
+    }
+
+    const effectiveAt = subscription.nextBillingDate ?? subscription.endDate;
+    if (!effectiveAt) {
+      throw new BadRequestException(
+        'Subscription has no current billing period end date for scheduled cancellation',
+      );
+    }
+
+    const now = new Date();
+    const becomesCancelled = effectiveAt <= now;
+
+    return this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.subscription.updateMany({
+        where: {
+          id,
+          status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED] },
+          cancellationEffectiveAt: null,
+        },
+        data: {
+          cancellationRequestedAt: now,
+          cancellationEffectiveAt: effectiveAt,
+          cancellationReason: reason,
+          ...(becomesCancelled
+            ? { status: SubscriptionStatus.CANCELLED, cancelledAt: now }
+            : {}),
+        },
+      });
+
+      if (claimed.count === 0) {
+        return tx.subscription.findUniqueOrThrow({ where: { id } });
+      }
+
+      const updated = await tx.subscription.findUniqueOrThrow({
+        where: { id },
+        include: { plan: true, lines: true },
+      });
+
+      await this.recordAuditEvent(
+        id,
+        becomesCancelled ? 'CANCELLATION_EFFECTIVE' : 'CANCELLATION_REQUESTED',
+        subscription.status,
+        becomesCancelled ? SubscriptionStatus.CANCELLED : subscription.status,
+        reason,
+        actorId,
+        { effectiveAt: effectiveAt.toISOString() },
+        tx,
+      );
+
+      return updated;
+    });
+  }
+
+  async reverseCancellation(id: string, actorId?: string) {
+    const subscription = await this.prisma.subscription.findUnique({ where: { id } });
+    if (!subscription) {
+      throw new NotFoundException(`Subscription ${id} not found`);
+    }
+    if (subscription.status === SubscriptionStatus.CANCELLED) {
+      throw new BadRequestException('Effective cancellations cannot be reversed');
+    }
+    if (!subscription.cancellationEffectiveAt) {
+      return subscription;
+    }
+    if (subscription.cancellationEffectiveAt <= new Date()) {
+      throw new BadRequestException('The cancellation effective date has passed');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const cleared = await tx.subscription.updateMany({
+        where: {
+          id,
+          status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED] },
+          cancellationEffectiveAt: { gt: new Date() },
+        },
+        data: {
+          cancellationRequestedAt: null,
+          cancellationEffectiveAt: null,
+          cancellationReason: null,
+        },
+      });
+
+      if (cleared.count === 0) {
+        return tx.subscription.findUniqueOrThrow({ where: { id } });
+      }
+
+      const updated = await tx.subscription.findUniqueOrThrow({
+        where: { id },
+        include: { plan: true, lines: true },
+      });
+
+      await this.recordAuditEvent(
+        id,
+        'CANCELLATION_REVERSED',
+        subscription.status,
+        subscription.status,
+        undefined,
+        actorId,
+        undefined,
+        tx,
+      );
+
+      return updated;
+    });
+  }
 }

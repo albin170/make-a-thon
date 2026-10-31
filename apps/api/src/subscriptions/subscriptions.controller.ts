@@ -16,6 +16,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { SubscriptionsService } from './subscriptions.service';
 import { CustomerOwnershipService } from '../common/authorization/customer-ownership.service';
+import { CreateSubscriptionDto } from './dto/create-subscription.dto';
+import { SubscriptionActionDto } from './dto/subscription-action.dto';
 
 @ApiTags('subscriptions')
 @ApiBearerAuth()
@@ -30,7 +32,7 @@ export class SubscriptionsController {
   @Post()
   @Roles('ADMIN', 'STAFF')
   @ApiOperation({ summary: 'Create a new subscription' })
-  create(@Body() dto: any) {
+  create(@Body() dto: CreateSubscriptionDto) {
     return this.subscriptionsService.createSubscription(dto);
   }
 
@@ -66,13 +68,13 @@ export class SubscriptionsController {
   @ApiOperation({ summary: 'Pause an active subscription' })
   async pause(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body('reason') reason: string,
+    @Body() dto: SubscriptionActionDto,
     @Request() req: any,
   ) {
     if (req.user.role === 'CUSTOMER') {
       await this.ownership.assertCustomerOwnsSubscription(req.user.id, id);
     }
-    return this.subscriptionsService.pauseSubscription(id, reason || 'Customer requested pause', req.user?.id);
+    return this.subscriptionsService.pauseSubscription(id, dto.reason || 'Customer requested pause', req.user?.id);
   }
 
   @Patch(':id/resume')
@@ -90,13 +92,37 @@ export class SubscriptionsController {
   @ApiOperation({ summary: 'Close a subscription early' })
   async close(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body('reason') reason: string,
+    @Body() dto: SubscriptionActionDto,
     @Request() req: any,
   ) {
     if (req.user.role === 'CUSTOMER') {
       await this.ownership.assertCustomerOwnsSubscription(req.user.id, id);
     }
-    return this.subscriptionsService.closeSubscription(id, reason || 'Customer requested closure', req.user?.id);
+    return this.subscriptionsService.closeSubscription(id, dto.reason || 'Customer requested closure', req.user?.id);
+  }
+
+  @Patch(':id/cancel')
+  @Roles('ADMIN', 'STAFF', 'CUSTOMER')
+  @ApiOperation({ summary: 'Schedule cancellation at the current billing period end' })
+  async cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SubscriptionActionDto,
+    @Request() req: any,
+  ) {
+    if (req.user.role === 'CUSTOMER') {
+      await this.ownership.assertCustomerOwnsSubscription(req.user.id, id);
+    }
+    return this.subscriptionsService.cancelSubscription(id, dto.reason, req.user?.id);
+  }
+
+  @Patch(':id/cancel/reverse')
+  @Roles('ADMIN', 'STAFF', 'CUSTOMER')
+  @ApiOperation({ summary: 'Reverse a pending subscription cancellation' })
+  async reverseCancellation(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    if (req.user.role === 'CUSTOMER') {
+      await this.ownership.assertCustomerOwnsSubscription(req.user.id, id);
+    }
+    return this.subscriptionsService.reverseCancellation(id, req.user?.id);
   }
 }
 

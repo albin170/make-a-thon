@@ -21,7 +21,7 @@ export class PaymentsService {
   async recordPayment(dto: {
     customerId: string;
     method: PaymentMethod;
-    amount: string;
+    amount: string | number;
     currency?: string;
     paymentDate: string | Date;
     reference?: string;
@@ -135,7 +135,7 @@ export class PaymentsService {
   async allocatePayment(
     paymentId: string,
     invoiceId: string,
-    amount: string,
+    amount: string | number,
     notes?: string,
   ) {
     const allocationAmount = new Decimal(amount);
