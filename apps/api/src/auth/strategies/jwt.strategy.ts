@@ -13,7 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('JWT_SECRET'),
+      secretOrKey: config.get<string>('JWT_SECRET') || process.env.JWT_SECRET || 'brightloop_default_jwt_secret_fallback_key_2026',
     });
   }
 
@@ -32,4 +32,5 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     };
   }
 }
+
 
