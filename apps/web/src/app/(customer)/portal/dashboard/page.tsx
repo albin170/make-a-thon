@@ -254,7 +254,7 @@ export default function CustomerDashboardPage() {
                 Once your subscriptions are active, real billing charts and renewal trends will appear here.
               </p>
               <Link
-                href="/portal/subscriptions"
+                href="/portal/plans"
                 className="mt-4 px-4 py-2 rounded-xl btn-neon text-xs font-bold"
               >
                 Browse Available Plans
@@ -337,7 +337,7 @@ export default function CustomerDashboardPage() {
             href={activeCount > 0 ? '/portal/subscriptions' : '/portal/plans'}
             className="w-full py-3 rounded-xl btn-neon text-xs font-bold text-center block mt-2"
           >
-            {activeCount > 0 ? 'Manage Plan →' : 'Explore Plans →'}
+            {activeCount > 0 ? 'Manage Subscription →' : 'Explore Plans →'}
           </Link>
         </div>
       </div>
@@ -348,6 +348,17 @@ export default function CustomerDashboardPage() {
           <h3 className="text-base font-bold text-white tracking-tight mb-4">Quick Actions</h3>
 
           <div className="space-y-3">
+            <Link
+              href="/portal/plans"
+              className="w-full p-3.5 rounded-2xl glass-card glass-card-hover flex items-center justify-between border-white/10"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-lg">💎</span>
+                <span className="text-xs font-semibold text-white">Browse Available Plans</span>
+              </div>
+              <span className="text-xs text-violet-400">→</span>
+            </Link>
+
             <Link
               href="/portal/invoices"
               className="w-full p-3.5 rounded-2xl glass-card glass-card-hover flex items-center justify-between border-white/10"

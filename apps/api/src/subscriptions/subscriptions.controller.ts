@@ -29,22 +29,27 @@ export class SubscriptionsController {
     private readonly ownership: CustomerOwnershipService,
   ) {}
 
-  @Post('purchase')
-  @Roles('CUSTOMER')
-  @ApiOperation({ summary: 'Purchase an available plan for the authenticated customer' })
-  purchase(@Body() dto: { planId: string; quantity?: number }, @Request() req: any) {
-    return this.subscriptionsService.purchaseSubscription(
-      req.user.id,
-      dto.planId,
-      dto.quantity,
-    );
-  }
-
   @Post()
   @Roles('ADMIN', 'STAFF')
-  @ApiOperation({ summary: 'Create a new subscription' })
+  @ApiOperation({ summary: 'Create a new subscription (Admin / Staff)' })
   create(@Body() dto: CreateSubscriptionDto) {
     return this.subscriptionsService.createSubscription(dto);
+  }
+
+  @Post('purchase')
+  @Roles('ADMIN', 'STAFF', 'CUSTOMER')
+  @ApiOperation({ summary: 'Customer subscription checkout and purchase' })
+  async purchase(
+    @Body() dto: { planId: string; quantity?: number; paymentMethod?: string; notes?: string },
+    @Request() req: any,
+  ) {
+    let customerId: string;
+    if (req.user.role === 'CUSTOMER') {
+      customerId = await this.ownership.getCustomerIdForUser(req.user.id);
+    } else {
+      customerId = (dto as any).customerId || (await this.ownership.getCustomerIdForUser(req.user.id));
+    }
+    return this.subscriptionsService.purchaseSubscription(customerId, dto, req.user?.id);
   }
 
   @Get()
@@ -114,7 +119,7 @@ export class SubscriptionsController {
 
   @Patch(':id/cancel')
   @Roles('ADMIN', 'STAFF', 'CUSTOMER')
-  @ApiOperation({ summary: 'Schedule cancellation at the current billing period end' })
+  @ApiOperation({ summary: 'Schedule subscription cancellation for current period end' })
   async cancel(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SubscriptionActionDto,
@@ -123,17 +128,26 @@ export class SubscriptionsController {
     if (req.user.role === 'CUSTOMER') {
       await this.ownership.assertCustomerOwnsSubscription(req.user.id, id);
     }
-    return this.subscriptionsService.cancelSubscription(id, dto.reason, req.user?.id);
+    return this.subscriptionsService.cancelSubscription(id, dto?.reason, req.user?.id);
   }
 
-  @Patch(':id/cancel/reverse')
+  @Patch(':id/reverse-cancellation')
   @Roles('ADMIN', 'STAFF', 'CUSTOMER')
-  @ApiOperation({ summary: 'Reverse a pending subscription cancellation' })
-  async reverseCancellation(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+  @ApiOperation({ summary: 'Reverse scheduled cancellation before effective date' })
+  async reverseCancellation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ) {
     if (req.user.role === 'CUSTOMER') {
       await this.ownership.assertCustomerOwnsSubscription(req.user.id, id);
     }
     return this.subscriptionsService.reverseCancellation(id, req.user?.id);
   }
-}
 
+  @Patch(':id/cancel/reverse')
+  @Roles('ADMIN', 'STAFF', 'CUSTOMER')
+  @ApiOperation({ summary: 'Reverse a pending subscription cancellation' })
+  async reverseCancellationAlias(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    return this.reverseCancellation(id, req);
+  }
+}

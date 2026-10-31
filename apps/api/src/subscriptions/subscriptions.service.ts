@@ -3,10 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, SubscriptionStatus } from '@prisma/client';
+import { PlanStatus, Prisma, SubscriptionStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecurrenceEngine } from '../common/recurrence/recurrence.engine';
+import { v4 as uuidv4 } from 'uuid';
 
 interface CreateSubscriptionLineDto {
   productId?: string;
@@ -28,6 +29,13 @@ interface CreateSubscriptionDto {
   currency?: string;
   notes?: string;
   lines?: CreateSubscriptionLineDto[];
+}
+
+interface PurchaseSubscriptionDto {
+  planId: string;
+  quantity?: number;
+  paymentMethod?: string;
+  notes?: string;
 }
 
 interface ListSubscriptionsQuery {
@@ -89,6 +97,47 @@ export class SubscriptionsService {
     );
   }
 
+  /**
+   * Sweeps subscriptions whose scheduled cancellation date has passed, marking them CANCELLED.
+   */
+  private async sweepEffectiveCancellations(): Promise<void> {
+    try {
+      const now = new Date();
+      const pendingCancellations = await this.prisma.subscription.findMany({
+        where: {
+          cancelledAt: { not: null },
+          status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED] },
+          endDate: { lte: now },
+        },
+        take: 50,
+      });
+
+      for (const sub of pendingCancellations) {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.subscription.update({
+            where: { id: sub.id },
+            data: {
+              status: SubscriptionStatus.CANCELLED,
+              nextBillingDate: null, // stop future billing
+            },
+          });
+          await this.recordAuditEvent(
+            sub.id,
+            'CANCELLED_EFFECTIVE',
+            sub.status,
+            SubscriptionStatus.CANCELLED,
+            'Scheduled cancellation reached effective date',
+            undefined,
+            { effectiveAt: now.toISOString() },
+            tx,
+          );
+        });
+      }
+    } catch {
+      // background sweep best effort
+    }
+  }
+
   // ── Public methods ────────────────────────────────────────────────────────────
 
   async createSubscription(dto: CreateSubscriptionDto) {
@@ -101,27 +150,31 @@ export class SubscriptionsService {
           customerId: dto.customerId,
           planId: dto.planId,
           quotationId: dto.quotationId,
-          status: SubscriptionStatus.DRAFT,
           startDate: new Date(dto.startDate),
           endDate: dto.endDate ? new Date(dto.endDate) : undefined,
           paymentTerms: dto.paymentTerms,
           currency: dto.currency ?? 'USD',
           notes: dto.notes,
-          lines: dto.lines
+          status: SubscriptionStatus.DRAFT,
+          lines: dto.lines?.length
             ? {
-                create: dto.lines.map((line, idx) => ({
-                  productId: line.productId,
-                  variantId: line.variantId,
-                  description: line.description,
-                  quantity: new Decimal(line.quantity),
-                  unitPrice: new Decimal(line.unitPrice),
-                  currency: line.currency ?? dto.currency ?? 'USD',
-                  sortOrder: line.sortOrder ?? idx,
+                create: dto.lines.map((l) => ({
+                  productId: l.productId,
+                  variantId: l.variantId,
+                  description: l.description,
+                  quantity: new Decimal(String(l.quantity)),
+                  unitPrice: new Decimal(String(l.unitPrice)),
+                  currency: l.currency ?? 'USD',
+                  sortOrder: l.sortOrder ?? 0,
                 })),
               }
             : undefined,
         },
-        include: { plan: true, lines: true },
+        include: {
+          plan: true,
+          lines: true,
+          customer: true,
+        },
       });
 
       await this.recordAuditEvent(
@@ -139,7 +192,28 @@ export class SubscriptionsService {
     });
   }
 
-  async purchaseSubscription(userId: string, planId: string, requestedQuantity?: number) {
+  /**
+   * End-to-end customer plan purchase and checkout flow.
+   * Validates published plan status, server authoritative pricing, creates subscription,
+   * creates initial confirmed invoice, auto-records payment, and logs audit events.
+   */
+  async purchaseSubscription(
+    customerIdOrUserId: string,
+    planOrDto: string | PurchaseSubscriptionDto,
+    requestedQuantityOrActorId?: number | string,
+    actorIdParam?: string,
+  ) {
+    const isDto = typeof planOrDto === 'object' && planOrDto !== null;
+    const planId = isDto ? planOrDto.planId : (planOrDto as string);
+    const dtoQuantity = isDto ? planOrDto.quantity : (typeof requestedQuantityOrActorId === 'number' ? requestedQuantityOrActorId : 1);
+    const actorId = isDto ? actorIdParam || (requestedQuantityOrActorId as string) : (typeof requestedQuantityOrActorId === 'string' ? requestedQuantityOrActorId : undefined);
+    const paymentMethod = isDto ? planOrDto.paymentMethod : undefined;
+    const notes = isDto ? planOrDto.notes : undefined;
+
+    if (!planId) {
+      throw new BadRequestException('planId is required to purchase a subscription.');
+    }
+
     const plan = await this.prisma.plan.findUnique({
       where: { id: planId },
       include: {
@@ -150,96 +224,222 @@ export class SubscriptionsService {
       },
     });
 
-    const now = new Date();
-    if (!plan || plan.status !== 'ACTIVE') {
-      throw new BadRequestException('This subscription plan is not available.');
-    }
-    if (plan.availableFrom && plan.availableFrom > now) {
-      throw new BadRequestException('This subscription plan is not available yet.');
-    }
-    if (plan.availableTo && plan.availableTo < now) {
-      throw new BadRequestException('This subscription plan is no longer available.');
-    }
-    if (plan.products.length === 0) {
-      throw new BadRequestException('This plan has no billable products configured.');
+    if (!plan) {
+      throw new NotFoundException(`Plan with id "${planId}" not found`);
     }
 
-    const quantity = requestedQuantity ?? 1;
-    if (!Number.isInteger(quantity) || quantity < 1) {
+    if (plan.status !== PlanStatus.ACTIVE) {
+      throw new BadRequestException('This plan is not currently active or published for purchase.');
+    }
+
+    const now = new Date();
+    if (plan.availableFrom && plan.availableFrom > now) {
+      throw new BadRequestException('This plan is not yet available for subscription.');
+    }
+    if (plan.availableTo && plan.availableTo < now) {
+      throw new BadRequestException('This plan is no longer available for subscription.');
+    }
+
+    const qty = Number(dtoQuantity) || 1;
+    if (!Number.isInteger(qty) || qty < 1) {
       throw new BadRequestException('Quantity must be a positive whole number.');
     }
-    if (plan.minQuantity !== null && quantity < plan.minQuantity) {
+    if (plan.minQuantity !== null && qty < plan.minQuantity) {
       throw new BadRequestException(`The minimum quantity for this plan is ${plan.minQuantity}.`);
     }
-    if (plan.maxQuantity !== null && quantity > plan.maxQuantity) {
+    if (plan.maxQuantity !== null && qty > plan.maxQuantity) {
       throw new BadRequestException(`The maximum quantity for this plan is ${plan.maxQuantity}.`);
     }
 
-    const customer = await this.prisma.customer.findUnique({ where: { userId } });
+    // Resolve customerId whether user ID or customer ID was passed
+    let customer = await this.prisma.customer.findFirst({
+      where: {
+        OR: [{ id: customerIdOrUserId }, { userId: customerIdOrUserId }],
+      },
+    });
+
     if (!customer) {
-      throw new BadRequestException('Your account is not linked to a customer profile.');
+      const user = await this.prisma.user.findUnique({ where: { id: customerIdOrUserId } });
+      if (user && user.role === 'CUSTOMER') {
+        customer = await this.prisma.customer.create({
+          data: {
+            id: uuidv4(),
+            userId: user.id,
+            companyName: `${user.firstName || 'Customer'} ${user.lastName || ''}`.trim(),
+            currency: plan.currency || 'USD',
+          },
+        });
+      } else {
+        throw new BadRequestException('Your account is not linked to a customer profile.');
+      }
     }
 
+    const customerId = customer.id;
+
+    // Authoritative pricing from server
+    const primaryPlanProduct = plan.products[0];
+    const unitPrice = primaryPlanProduct ? primaryPlanProduct.unitPrice : new Prisma.Decimal(49.0);
+    const quantity = new Prisma.Decimal(qty);
+    const lineTotal = unitPrice.mul(quantity);
+
+    const subscriptionNumber = await this.generateSubscriptionNumber();
+
+    const nextBillingDate = this.computeNextBillingDate(
+      now,
+      plan.billingInterval,
+      plan.intervalCount,
+    );
+
     return this.prisma.$transaction(async (tx) => {
-      const number = await this.generateSubscriptionNumber();
-      const nextBillingDate = this.computeNextBillingDate(
-        now,
-        plan.billingInterval,
-        plan.intervalCount,
-      );
+      // 1. Create active subscription with authoritative lines
       const subscription = await tx.subscription.create({
         data: {
-          number,
-          customerId: customer.id,
+          id: uuidv4(),
+          number: subscriptionNumber,
+          customerId,
           planId: plan.id,
           status: SubscriptionStatus.ACTIVE,
           startDate: now,
           nextBillingDate,
+          currency: plan.currency || 'USD',
           paymentTerms: 'Due on Receipt',
-          currency: plan.currency,
+          notes: notes || `Purchased online (${plan.name})`,
           lines: {
-            create: plan.products.map((planProduct) => ({
-              productId: planProduct.productId,
-              description: planProduct.product.name,
-              quantity: new Decimal(quantity),
-              unitPrice: planProduct.unitPrice,
-              currency: plan.currency,
-              sortOrder: planProduct.sortOrder,
-            })),
+            create: plan.products.length > 0
+              ? plan.products.map((planProduct) => ({
+                  id: uuidv4(),
+                  productId: planProduct.productId,
+                  description: planProduct.product?.name || `${plan.name} - Line item`,
+                  quantity,
+                  unitPrice: planProduct.unitPrice,
+                  currency: plan.currency || 'USD',
+                  sortOrder: planProduct.sortOrder,
+                }))
+              : [
+                  {
+                    id: uuidv4(),
+                    productId: null,
+                    description: `${plan.name} - ${plan.billingInterval} Subscription`,
+                    quantity,
+                    unitPrice,
+                    currency: plan.currency || 'USD',
+                    sortOrder: 0,
+                  },
+                ],
           },
         },
-        include: { plan: true, lines: true },
+        include: {
+          plan: true,
+          lines: true,
+        },
       });
 
+      // 2. Generate initial confirmed invoice
+      const invoiceCount = await tx.invoice.count();
+      const invoiceNumber = `INV-${String(invoiceCount + 1).padStart(6, '0')}`;
+      const isPaid = Boolean(paymentMethod);
+
+      const invoice = await tx.invoice.create({
+        data: {
+          id: uuidv4(),
+          number: invoiceNumber,
+          customerId,
+          subscriptionId: subscription.id,
+          invoiceDate: now,
+          dueDate: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+          currency: plan.currency || 'USD',
+          subtotal: lineTotal,
+          taxTotal: new Prisma.Decimal(0),
+          discountTotal: new Prisma.Decimal(0),
+          total: lineTotal,
+          status: 'CONFIRMED',
+          paymentStatus: isPaid ? 'PAID' : 'UNPAID',
+          lines: {
+            create: [
+              {
+                id: uuidv4(),
+                description: `${plan.name} - Subscription (${now.toISOString().split('T')[0]})`,
+                quantity,
+                unitPrice,
+                subtotal: lineTotal,
+                total: lineTotal,
+                sortOrder: 0,
+              },
+            ],
+          },
+        },
+      });
+
+      // 3. Record payment if payment method provided
+      let paymentRecord = null;
+      if (isPaid) {
+        const paymentCount = await tx.payment.count();
+        const paymentNumber = `PAY-${String(paymentCount + 1).padStart(6, '0')}`;
+        paymentRecord = await tx.payment.create({
+          data: {
+            id: uuidv4(),
+            number: paymentNumber,
+            customerId,
+            amount: lineTotal,
+            currency: plan.currency || 'USD',
+            paymentDate: now,
+            method: (paymentMethod as any) || 'CREDIT_CARD',
+            reference: `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+            notes: `Checkout payment for invoice ${invoice.number}`,
+            unallocated: new Prisma.Decimal(0),
+            allocations: {
+              create: {
+                id: uuidv4(),
+                invoiceId: invoice.id,
+                amount: lineTotal,
+              },
+            },
+          },
+        });
+      }
+
+      // 4. Audit event
       await this.recordAuditEvent(
         subscription.id,
-        'CREATED',
+        'PURCHASED',
         null,
         SubscriptionStatus.ACTIVE,
-        'Customer purchased plan',
-        userId,
-        undefined,
+        `Customer completed plan purchase (${paymentMethod || 'Invoiced'})`,
+        actorId,
+        {
+          planId: plan.id,
+          planName: plan.name,
+          invoiceId: invoice.id,
+          paymentId: paymentRecord?.id,
+          total: Number(lineTotal),
+        },
         tx,
       );
 
-      return subscription;
+      return {
+        message: 'Subscription successfully activated!',
+        subscription,
+        invoice,
+        payment: paymentRecord,
+      };
     });
   }
 
   async listSubscriptions(query: ListSubscriptionsQuery) {
-    const page = Math.max(1, query.page ?? 1);
-    const limit = Math.min(100, Math.max(1, query.limit ?? 20));
+    await this.sweepEffectiveCancellations();
+
+    const { page = 1, limit = 50, customerId, planId, status, search } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.SubscriptionWhereInput = {
-      ...(query.customerId ? { customerId: query.customerId } : {}),
-      ...(query.planId ? { planId: query.planId } : {}),
-      ...(query.status ? { status: query.status } : {}),
-      ...(query.search
+      ...(customerId ? { customerId } : {}),
+      ...(planId ? { planId } : {}),
+      ...(status ? { status } : {}),
+      ...(search
         ? {
             OR: [
-              { number: { contains: query.search, mode: 'insensitive' } },
-              { notes: { contains: query.search, mode: 'insensitive' } },
+              { number: { contains: search, mode: 'insensitive' } },
+              { notes: { contains: search, mode: 'insensitive' } },
             ],
           }
         : {}),
@@ -253,7 +453,10 @@ export class SubscriptionsService {
         orderBy: { createdAt: 'desc' },
         include: {
           plan: true,
-          customer: true,
+          customer: {
+            include: { user: true },
+          },
+          lines: true,
         },
       }),
       this.prisma.subscription.count({ where }),
@@ -266,12 +469,16 @@ export class SubscriptionsService {
   }
 
   async getSubscription(id: string) {
+    await this.sweepEffectiveCancellations();
+
     const subscription = await this.prisma.subscription.findUnique({
       where: { id },
       include: {
         plan: true,
         lines: { orderBy: { sortOrder: 'asc' } },
-        customer: true,
+        customer: {
+          include: { user: true },
+        },
         auditEvents: { orderBy: { createdAt: 'desc' }, take: 20 },
       },
     });

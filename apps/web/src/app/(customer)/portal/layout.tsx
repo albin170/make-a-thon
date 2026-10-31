@@ -8,7 +8,7 @@ import { apiClient } from '@/lib/api-client';
 
 const navigation = [
   { name: 'Dashboard', href: '/portal/dashboard', icon: '🏠' },
-  { name: 'Browse Plans', href: '/portal/plans', icon: '✨' },
+  { name: 'Available Plans', href: '/portal/plans', icon: '💎' },
   { name: 'My Subscriptions', href: '/portal/subscriptions', icon: '🔄' },
   { name: 'Invoices', href: '/portal/invoices', icon: '💳' },
 ];
@@ -183,7 +183,7 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
                 <h4 className="text-xs font-bold text-white tracking-wide">Upgrade to Pro</h4>
                 <p className="text-[11px] text-slate-400 mt-1">Unlock more features and grow faster.</p>
                 <Link
-                  href="/portal/subscriptions"
+                  href="/portal/plans"
                   className="mt-3 w-full py-1.5 rounded-lg btn-neon text-white text-xs font-semibold shadow-md shadow-violet-600/40 transition block text-center"
                 >
                   Upgrade

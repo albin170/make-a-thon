@@ -4,7 +4,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PlanStatus, Prisma } from '@prisma/client';
+import { BillingInterval, PlanStatus, Prisma } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 
 interface CreatePlanProductDto {
   productId: string;
@@ -30,6 +31,7 @@ interface CreatePlanDto {
   minQuantity?: number;
   maxQuantity?: number;
   trialDays?: number;
+  price?: number | string;
   notes?: string;
   products?: CreatePlanProductDto[];
 }
@@ -46,7 +48,7 @@ export class PlansService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listPlans(query: ListPlansQuery) {
-    const { page = 1, limit = 20, search, status } = query;
+    const { page = 1, limit = 50, search, status } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.PlanWhereInput = {};
@@ -68,15 +70,34 @@ export class PlansService {
         skip,
         take: limit,
         include: {
-          products: true,
+          products: {
+            include: {
+              product: true,
+            },
+          },
+          _count: {
+            select: {
+              subscriptions: true,
+            },
+          },
         },
-        orderBy: { name: 'asc' },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.plan.count({ where }),
     ]);
 
+    const formattedData = data.map((p) => {
+      const primaryProduct = p.products[0];
+      const price = primaryProduct ? Number(primaryProduct.unitPrice) : 0;
+      return {
+        ...p,
+        price,
+        subscriberCount: p._count?.subscriptions || 0,
+      };
+    });
+
     return {
-      data,
+      data: formattedData,
       meta: {
         total,
         page,
@@ -87,38 +108,78 @@ export class PlansService {
   }
 
   async createPlan(dto: CreatePlanDto) {
-    const { products, ...planData } = dto;
+    if (!dto.name || !dto.name.trim()) {
+      throw new BadRequestException('Plan name is required.');
+    }
+
+    const { products, price, ...planData } = dto;
+    const planPrice = price !== undefined && price !== null ? Number(price) : 0;
 
     return this.prisma.$transaction(async (tx) => {
+      // 1. Create the plan
       const plan = await tx.plan.create({
         data: {
           ...planData,
-          billingInterval: planData.billingInterval as any,
+          name: dto.name.trim(),
+          billingInterval: (planData.billingInterval as BillingInterval) || BillingInterval.MONTHLY,
           status: planData.status ?? PlanStatus.ACTIVE,
-          availableFrom: planData.availableFrom
-            ? new Date(planData.availableFrom)
-            : undefined,
-          availableTo: planData.availableTo
-            ? new Date(planData.availableTo)
-            : undefined,
-          products: products?.length
-            ? {
-                create: products.map((p) => ({
-                  productId: p.productId,
-                  unitPrice: new Prisma.Decimal(p.unitPrice),
-                  minQty: p.minQty,
-                  maxQty: p.maxQty,
-                  sortOrder: p.sortOrder ?? 0,
-                })),
-              }
-            : undefined,
-        },
-        include: {
-          products: true,
+          currency: planData.currency || 'USD',
+          trialDays: Number(planData.trialDays) || 0,
+          intervalCount: Number(planData.intervalCount) || 1,
+          availableFrom: planData.availableFrom ? new Date(planData.availableFrom) : undefined,
+          availableTo: planData.availableTo ? new Date(planData.availableTo) : undefined,
         },
       });
 
-      return plan;
+      // 2. Handle Plan Products or direct Price
+      if (products && products.length > 0) {
+        for (let i = 0; i < products.length; i++) {
+          const p = products[i];
+          await tx.planProduct.create({
+            data: {
+              id: uuidv4(),
+              planId: plan.id,
+              productId: p.productId,
+              unitPrice: new Prisma.Decimal(p.unitPrice),
+              minQty: p.minQty || 1,
+              maxQty: p.maxQty,
+              sortOrder: p.sortOrder ?? i,
+            },
+          });
+        }
+      } else {
+        // Link to existing product or create a default service product
+        let product = await tx.product.findFirst({
+          where: { status: 'ACTIVE' },
+          orderBy: { createdAt: 'asc' },
+        });
+
+        if (!product) {
+          product = await tx.product.create({
+            data: {
+              id: uuidv4(),
+              name: dto.name.trim(),
+              type: 'SERVICE',
+              salesPrice: new Prisma.Decimal(planPrice),
+              currency: planData.currency || 'USD',
+              status: 'ACTIVE',
+            },
+          });
+        }
+
+        await tx.planProduct.create({
+          data: {
+            id: uuidv4(),
+            planId: plan.id,
+            productId: product.id,
+            unitPrice: new Prisma.Decimal(planPrice),
+            minQty: 1,
+            sortOrder: 0,
+          },
+        });
+      }
+
+      return this.getPlan(plan.id);
     });
   }
 
@@ -131,6 +192,11 @@ export class PlansService {
             product: true,
           },
         },
+        _count: {
+          select: {
+            subscriptions: true,
+          },
+        },
       },
     });
 
@@ -138,38 +204,80 @@ export class PlansService {
       throw new NotFoundException(`Plan with id "${id}" not found`);
     }
 
-    return plan;
+    const primaryProduct = plan.products[0];
+    const price = primaryProduct ? Number(primaryProduct.unitPrice) : 0;
+
+    return {
+      ...plan,
+      price,
+      subscriberCount: plan._count?.subscriptions || 0,
+    };
   }
 
   async updatePlan(id: string, dto: Partial<CreatePlanDto>) {
     await this.getPlan(id);
 
-    const { products, ...planData } = dto;
+    const { products, price, ...planData } = dto;
+
+    return this.prisma.$transaction(async (tx) => {
+      const updateData: Prisma.PlanUpdateInput = {
+        ...planData,
+        billingInterval: planData.billingInterval ? (planData.billingInterval as BillingInterval) : undefined,
+        availableFrom: planData.availableFrom ? new Date(planData.availableFrom) : undefined,
+        availableTo: planData.availableTo ? new Date(planData.availableTo) : undefined,
+      };
+
+      await tx.plan.update({
+        where: { id },
+        data: updateData,
+      });
+
+      // Update unit price on primary PlanProduct if provided
+      if (price !== undefined && price !== null) {
+        const decimalPrice = new Prisma.Decimal(price);
+        const existingPP = await tx.planProduct.findFirst({
+          where: { planId: id },
+        });
+
+        if (existingPP) {
+          await tx.planProduct.update({
+            where: { id: existingPP.id },
+            data: { unitPrice: decimalPrice },
+          });
+        } else {
+          const product = await tx.product.findFirst({ where: { status: 'ACTIVE' } });
+          if (product) {
+            await tx.planProduct.create({
+              data: {
+                id: uuidv4(),
+                planId: id,
+                productId: product.id,
+                unitPrice: decimalPrice,
+              },
+            });
+          }
+        }
+      }
+
+      return this.getPlan(id);
+    });
+  }
+
+  async updatePlanStatus(id: string, status: PlanStatus) {
+    await this.getPlan(id);
 
     return this.prisma.plan.update({
       where: { id },
-      data: {
-        ...planData,
-        billingInterval: planData.billingInterval as any,
-        availableFrom: planData.availableFrom
-          ? new Date(planData.availableFrom)
-          : undefined,
-        availableTo: planData.availableTo
-          ? new Date(planData.availableTo)
-          : undefined,
-      },
+      data: { status },
       include: {
-        products: true,
+        products: {
+          include: { product: true },
+        },
       },
     });
   }
 
   async deactivatePlan(id: string) {
-    await this.getPlan(id);
-
-    return this.prisma.plan.update({
-      where: { id },
-      data: { status: PlanStatus.ARCHIVED },
-    });
+    return this.updatePlanStatus(id, PlanStatus.ARCHIVED);
   }
 }

@@ -1,17 +1,37 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class CustomerOwnershipService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getCustomerIdForUser(userId: string): Promise<string> {
-    const customer = await this.prisma.customer.findUnique({
+    let customer = await this.prisma.customer.findUnique({
       where: { userId },
       select: { id: true },
     });
 
     if (!customer) {
+      const user = this.prisma.user?.findUnique
+        ? await this.prisma.user.findUnique({
+            where: { id: userId },
+          })
+        : null;
+
+      if (user && user.role === 'CUSTOMER' && this.prisma.customer.create) {
+        const newCustomer = await this.prisma.customer.create({
+          data: {
+            id: uuidv4(),
+            userId,
+            companyName: `${user.firstName || 'Customer'} ${user.lastName || ''}`.trim(),
+            currency: 'USD',
+          },
+          select: { id: true },
+        });
+        return newCustomer.id;
+      }
+
       throw new ForbiddenException('Authenticated user is not linked to a customer account.');
     }
 

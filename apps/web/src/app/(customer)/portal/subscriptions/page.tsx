@@ -53,16 +53,27 @@ export default function CustomerSubscriptionsPage() {
     }
   };
 
+  const handleReverseCancellation = async (id: string) => {
+    try {
+      setError('');
+      await apiClient.patch(`/subscriptions/${id}/reverse-cancellation`, {});
+      setSuccess('Cancellation reversed! Your subscription will continue renewing normally.');
+      await loadSubs();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to reverse cancellation');
+    }
+  };
+
   const handleConfirmCancel = async () => {
     if (!cancelTarget) return;
     setProcessing(true);
     setError('');
 
     try {
-      await apiClient.patch(`/subscriptions/${cancelTarget.id}/close`, {
+      await apiClient.patch(`/subscriptions/${cancelTarget.id}/cancel`, {
         reason: cancelReason || 'Customer self-service cancellation',
       });
-      setSuccess(`Subscription ${cancelTarget.number || ''} has been cancelled successfully.`);
+      setSuccess(`Subscription ${cancelTarget.number || ''} cancellation scheduled. You retain active access until the end of your billing period.`);
       setCancelTarget(null);
       await loadSubs();
     } catch (err: any) {
@@ -83,6 +94,12 @@ export default function CustomerSubscriptionsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/portal/plans"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-violet-500/30 transition flex items-center gap-1.5"
+          >
+            <span>💎</span> Browse Plans
+          </Link>
           <Link
             href="/portal/dashboard"
             className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 transition"
@@ -140,9 +157,12 @@ export default function CustomerSubscriptionsPage() {
               ) : subs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
-                    <p>You have no subscriptions registered yet.</p>
-                    <Link href="/portal/plans" className="inline-block mt-4 px-4 py-2 rounded-xl btn-neon text-xs font-bold text-white">
-                      Browse Available Plans →
+                    <p className="mb-3">You have no subscriptions registered yet.</p>
+                    <Link
+                      href="/portal/plans"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 text-white text-xs font-semibold shadow-lg shadow-violet-500/25 transition"
+                    >
+                      <span>💎</span> Browse Available Plans & Subscribe
                     </Link>
                   </td>
                 </tr>
@@ -150,6 +170,8 @@ export default function CustomerSubscriptionsPage() {
                 subs.map((s) => {
                   const planName = s.plan?.name || 'Pro Plan';
                   const interval = s.plan?.billingInterval || 'Monthly';
+                  const isCancelling = Boolean(s.cancelAtPeriodEnd || s.metadata?.cancelAtPeriodEnd);
+                  const effectiveDate = s.cancelEffectiveDate || s.metadata?.cancelEffectiveDate || s.currentPeriodEnd;
                   const dateDisplay = s.nextBillingDate
                     ? new Date(s.nextBillingDate).toLocaleDateString()
                     : s.startDate
@@ -166,29 +188,49 @@ export default function CustomerSubscriptionsPage() {
                         <p className="text-xs text-slate-400">Billed {interval.toLowerCase()}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                            s.status === 'ACTIVE'
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
-                              : s.status === 'PAUSED'
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/25'
-                              : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
-                          }`}
-                        >
+                        {isCancelling ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-amber-500/15 text-amber-300 border-amber-500/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            Active (Cancels {effectiveDate ? new Date(effectiveDate).toLocaleDateString() : 'at period end'})
+                          </span>
+                        ) : (
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              s.status === 'ACTIVE' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                              s.status === 'ACTIVE'
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                                : s.status === 'PAUSED'
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/25'
+                                : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
                             }`}
-                          />
-                          {s.status === 'CLOSED' ? 'CANCELLED' : s.status}
-                        </span>
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                s.status === 'ACTIVE' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
+                              }`}
+                            />
+                            {s.status === 'CLOSED' ? 'CANCELLED' : s.status}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-xs font-mono text-slate-300">
-                        {dateDisplay}
+                        {isCancelling && effectiveDate ? (
+                          <span className="text-amber-400">Ends {new Date(effectiveDate).toLocaleDateString()}</span>
+                        ) : (
+                          dateDisplay
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {s.status === 'ACTIVE' && (
+                          {isCancelling ? (
+                            <button
+                              type="button"
+                              onClick={() => handleReverseCancellation(s.id)}
+                              className="px-2.5 py-1 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 text-xs font-semibold border border-emerald-500/30 transition flex items-center gap-1"
+                              title="Keep subscription and resume automatic billing renewals"
+                            >
+                              <span>Keep Subscription</span>
+                            </button>
+                          ) : s.status === 'ACTIVE' ? (
                             <>
                               <button
                                 type="button"
@@ -205,8 +247,7 @@ export default function CustomerSubscriptionsPage() {
                                 <span>Cancel Subscription</span>
                               </button>
                             </>
-                          )}
-                          {s.status === 'PAUSED' && (
+                          ) : s.status === 'PAUSED' ? (
                             <>
                               <button
                                 type="button"
@@ -223,10 +264,9 @@ export default function CustomerSubscriptionsPage() {
                                 <span>Cancel Subscription</span>
                               </button>
                             </>
-                          )}
-                          {s.status === 'CLOSED' && (
+                          ) : s.status === 'CLOSED' ? (
                             <span className="text-xs text-slate-500 italic">Cancelled</span>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -249,9 +289,9 @@ export default function CustomerSubscriptionsPage() {
             <div className="text-center mb-5">
               <h3 className="text-lg font-bold text-white">Cancel Subscription?</h3>
               <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
-                Are you sure you want to cancel your{' '}
-                <strong className="text-white">{cancelTarget.plan?.name || 'Pro Plan'}</strong> subscription?
-                Your recurring billing will stop immediately upon confirmation.
+                Cancellation is scheduled for the end of your current billing period (
+                {cancelTarget.currentPeriodEnd ? new Date(cancelTarget.currentPeriodEnd).toLocaleDateString() : 'renewal date'}
+                ). You will retain full access until then. No further renewal charges will be created.
               </p>
             </div>
 

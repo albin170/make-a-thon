@@ -3,7 +3,8 @@ import { CustomerOwnershipService } from './customer-ownership.service';
 
 describe('CustomerOwnershipService', () => {
   const prisma = {
-    customer: { findUnique: jest.fn() },
+    customer: { findUnique: jest.fn(), create: jest.fn() },
+    user: { findUnique: jest.fn() },
     subscription: { findUnique: jest.fn() },
     invoice: { findUnique: jest.fn() },
     quotation: { findUnique: jest.fn() },

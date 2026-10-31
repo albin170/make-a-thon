@@ -124,6 +124,13 @@ export class CreatePlanDto {
   @Max(3650)
   trialDays?: number;
 
+  @ApiPropertyOptional({ example: 49.00 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  price?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
