@@ -11,6 +11,7 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateVariantDto } from './dto/create-variant.dto';
+import { ListProductsQueryDto } from './dto/list-products-query.dto';
 
 @ApiTags('products')
 @ApiBearerAuth()
@@ -22,7 +23,7 @@ export class ProductsController {
   @Get()
   @Roles('ADMIN', 'STAFF')
   @ApiOperation({ summary: 'List all products (paginated)' })
-  findAll(@Query() query: { page?: number; limit?: number; search?: string; status?: string }) {
+  findAll(@Query() query: ListProductsQueryDto) {
     return this.productsService.findAll(query);
   }
 
