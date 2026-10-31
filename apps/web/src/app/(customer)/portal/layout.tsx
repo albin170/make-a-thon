@@ -15,6 +15,8 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
+  const [proBannerClosed, setProBannerClosed] = useState(false);
+  const [proBannerMinimized, setProBannerMinimized] = useState(false);
 
   useEffect(() => {
     const u = getStoredUser();
@@ -94,20 +96,65 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
         </div>
 
         <div>
-          {/* Upgrade to Pro Card Widget (matching Image 2) */}
-          <div className="p-3 mx-3 mb-3 rounded-2xl bg-gradient-to-br from-violet-900/40 to-indigo-950/40 border border-violet-500/25 p-4 text-center">
-            <div className="w-9 h-9 rounded-xl bg-violet-600/30 text-violet-300 flex items-center justify-center mx-auto mb-2 text-lg border border-violet-400/30">
-              💎
-            </div>
-            <h4 className="text-xs font-bold text-white tracking-wide">Upgrade to Pro</h4>
-            <p className="text-[11px] text-slate-400 mt-1">Unlock more features and grow faster.</p>
-            <button
-              type="button"
-              className="mt-3 w-full py-1.5 rounded-lg btn-neon text-white text-xs font-semibold shadow-md shadow-violet-600/40 transition"
-            >
-              Upgrade
-            </button>
-          </div>
+          {/* Upgrade to Pro Card Widget with Minimize & Close option */}
+          {!proBannerClosed && (
+            proBannerMinimized ? (
+              <div className="mx-3 mb-3 p-2 rounded-xl bg-gradient-to-r from-violet-950/50 to-indigo-950/50 border border-violet-500/25 flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={() => setProBannerMinimized(false)}
+                  className="flex items-center gap-1.5 text-violet-300 font-semibold hover:text-white transition"
+                  title="Expand Upgrade to Pro"
+                >
+                  <span>💎</span>
+                  <span>Pro Upgrade</span>
+                  <span className="text-[10px]">▲</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProBannerClosed(true)}
+                  className="text-slate-400 hover:text-white p-1 transition"
+                  title="Close banner"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 mx-3 mb-3 rounded-2xl bg-gradient-to-br from-violet-900/40 to-indigo-950/40 border border-violet-500/25 p-4 text-center relative overflow-hidden">
+                {/* Top header controls: Minimize & Close */}
+                <div className="absolute top-2.5 right-2.5 flex items-center gap-1 text-slate-400">
+                  <button
+                    type="button"
+                    onClick={() => setProBannerMinimized(true)}
+                    className="w-5 h-5 rounded-md hover:bg-white/10 hover:text-white flex items-center justify-center text-xs transition"
+                    title="Minimize banner"
+                  >
+                    —
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProBannerClosed(true)}
+                    className="w-5 h-5 rounded-md hover:bg-white/10 hover:text-white flex items-center justify-center text-xs transition"
+                    title="Close banner"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="w-9 h-9 rounded-xl bg-violet-600/30 text-violet-300 flex items-center justify-center mx-auto mb-2 text-lg border border-violet-400/30">
+                  💎
+                </div>
+                <h4 className="text-xs font-bold text-white tracking-wide">Upgrade to Pro</h4>
+                <p className="text-[11px] text-slate-400 mt-1">Unlock more features and grow faster.</p>
+                <Link
+                  href="/portal/subscriptions"
+                  className="mt-3 w-full py-1.5 rounded-lg btn-neon text-white text-xs font-semibold shadow-md shadow-violet-600/40 transition block text-center"
+                >
+                  Upgrade
+                </Link>
+              </div>
+            )
+          )}
 
           {/* User profile footer */}
           <div className="p-4 border-t border-white/10 flex items-center justify-between">

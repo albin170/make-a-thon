@@ -11,6 +11,8 @@ export default function CustomerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<'6M' | '1Y' | 'All'>('6M');
   const [user, setUser] = useState<any>(null);
+  const [ribbonDismissed, setRibbonDismissed] = useState(false);
+  const [ribbonMinimized, setRibbonMinimized] = useState(false);
 
   useEffect(() => {
     setUser(getStoredUser());
@@ -45,27 +47,71 @@ export default function CustomerDashboardPage() {
           <p className="text-sm text-slate-400 mt-1">Here&apos;s an overview of your active subscriptions and plan features.</p>
         </div>
 
-        {/* Upgrade to Pro Ribbon Banner on Customer Panel */}
-        <div className="glass-card px-5 py-3.5 rounded-2xl flex items-center justify-between gap-6 border-violet-500/30 bg-gradient-to-r from-violet-900/30 to-indigo-900/30">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-600/30 text-violet-300 flex items-center justify-center text-xl shrink-0 border border-violet-400/30">
-              👑
+        {/* Upgrade to Pro Ribbon Banner with Minimize & Close */}
+        {!ribbonDismissed && (
+          ribbonMinimized ? (
+            <div className="glass-card px-4 py-2 rounded-2xl flex items-center gap-2 border border-violet-500/25">
+              <span className="text-xs font-bold text-violet-300 flex items-center gap-1.5">
+                👑 Pro Member
+              </span>
+              <button
+                type="button"
+                onClick={() => setRibbonMinimized(false)}
+                className="text-xs text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-white/10 transition"
+                title="Expand banner"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                onClick={() => setRibbonDismissed(true)}
+                className="text-xs text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-white/10 transition"
+                title="Close banner"
+              >
+                ✕
+              </button>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white tracking-wide">Pro Member</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          ) : (
+            <div className="glass-card px-5 py-3.5 rounded-2xl flex items-center justify-between gap-6 border-violet-500/30 bg-gradient-to-r from-violet-900/30 to-indigo-900/30 relative">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-600/30 text-violet-300 flex items-center justify-center text-xl shrink-0 border border-violet-400/30">
+                  👑
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white tracking-wide">Pro Member</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  </div>
+                  <p className="text-[11px] text-slate-300">Your plan is active until Jul 25, 2026</p>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-300">Your plan is active until Jul 25, 2026</p>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link
+                  href="/portal/subscriptions"
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-violet-500/30 transition shrink-0"
+                >
+                  Upgrade Plan →
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setRibbonMinimized(true)}
+                  className="w-6 h-6 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center text-xs transition"
+                  title="Minimize banner"
+                >
+                  —
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRibbonDismissed(true)}
+                  className="w-6 h-6 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center text-xs transition"
+                  title="Close banner"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-          </div>
-          <Link
-            href="/portal/subscriptions"
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-violet-500/30 transition shrink-0"
-          >
-            Upgrade Plan →
-          </Link>
-        </div>
+          )
+        )}
       </div>
 
       {/* 4 Metrics Cards */}
