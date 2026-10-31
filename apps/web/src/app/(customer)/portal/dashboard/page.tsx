@@ -120,7 +120,7 @@ export default function CustomerDashboardPage() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Link
-                  href="/portal/subscriptions"
+                  href={activeCount > 0 ? '/portal/subscriptions' : '/portal/plans'}
                   className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-violet-500/30 transition shrink-0"
                 >
                   {activeCount > 0 ? 'Manage Plans →' : 'Explore Plans →'}
@@ -334,10 +334,10 @@ export default function CustomerDashboardPage() {
           </div>
 
           <Link
-            href="/portal/subscriptions"
+            href={activeCount > 0 ? '/portal/subscriptions' : '/portal/plans'}
             className="w-full py-3 rounded-xl btn-neon text-xs font-bold text-center block mt-2"
           >
-            {activeCount > 0 ? 'Manage Subscription →' : 'Subscribe Now →'}
+            {activeCount > 0 ? 'Manage Plan →' : 'Explore Plans →'}
           </Link>
         </div>
       </div>

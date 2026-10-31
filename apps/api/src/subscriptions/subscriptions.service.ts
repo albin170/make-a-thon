@@ -139,6 +139,93 @@ export class SubscriptionsService {
     });
   }
 
+  async purchaseSubscription(userId: string, planId: string, requestedQuantity?: number) {
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: planId },
+      include: {
+        products: {
+          include: { product: true },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+
+    const now = new Date();
+    if (!plan || plan.status !== 'ACTIVE') {
+      throw new BadRequestException('This subscription plan is not available.');
+    }
+    if (plan.availableFrom && plan.availableFrom > now) {
+      throw new BadRequestException('This subscription plan is not available yet.');
+    }
+    if (plan.availableTo && plan.availableTo < now) {
+      throw new BadRequestException('This subscription plan is no longer available.');
+    }
+    if (plan.products.length === 0) {
+      throw new BadRequestException('This plan has no billable products configured.');
+    }
+
+    const quantity = requestedQuantity ?? 1;
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      throw new BadRequestException('Quantity must be a positive whole number.');
+    }
+    if (plan.minQuantity !== null && quantity < plan.minQuantity) {
+      throw new BadRequestException(`The minimum quantity for this plan is ${plan.minQuantity}.`);
+    }
+    if (plan.maxQuantity !== null && quantity > plan.maxQuantity) {
+      throw new BadRequestException(`The maximum quantity for this plan is ${plan.maxQuantity}.`);
+    }
+
+    const customer = await this.prisma.customer.findUnique({ where: { userId } });
+    if (!customer) {
+      throw new BadRequestException('Your account is not linked to a customer profile.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const number = await this.generateSubscriptionNumber();
+      const nextBillingDate = this.computeNextBillingDate(
+        now,
+        plan.billingInterval,
+        plan.intervalCount,
+      );
+      const subscription = await tx.subscription.create({
+        data: {
+          number,
+          customerId: customer.id,
+          planId: plan.id,
+          status: SubscriptionStatus.ACTIVE,
+          startDate: now,
+          nextBillingDate,
+          paymentTerms: 'Due on Receipt',
+          currency: plan.currency,
+          lines: {
+            create: plan.products.map((planProduct) => ({
+              productId: planProduct.productId,
+              description: planProduct.product.name,
+              quantity: new Decimal(quantity),
+              unitPrice: planProduct.unitPrice,
+              currency: plan.currency,
+              sortOrder: planProduct.sortOrder,
+            })),
+          },
+        },
+        include: { plan: true, lines: true },
+      });
+
+      await this.recordAuditEvent(
+        subscription.id,
+        'CREATED',
+        null,
+        SubscriptionStatus.ACTIVE,
+        'Customer purchased plan',
+        userId,
+        undefined,
+        tx,
+      );
+
+      return subscription;
+    });
+  }
+
   async listSubscriptions(query: ListSubscriptionsQuery) {
     const page = Math.max(1, query.page ?? 1);
     const limit = Math.min(100, Math.max(1, query.limit ?? 20));
