@@ -60,7 +60,7 @@ jobs:
         run: npm test
 
       - name: Run Integration Tests
-        run: npx jest tests/integration/auth.test.ts tests/integration/pricing.test.ts tests/integration/billing.test.ts tests/integration/payments.test.ts
+        run: npx jest tests/integration/auth.test.ts tests/integration/pricing.test.ts tests/integration/billing.test.ts tests/integration/payments.test.ts tests/integration/billing-pricing.test.ts
 
   validate-worker:
     name: Build & Validate Background Worker

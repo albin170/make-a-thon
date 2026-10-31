@@ -5,8 +5,8 @@ services:
     env: node
     plan: free
     rootDir: ""
-    buildCommand: npm install && npx prisma generate && npm run build --workspace=apps/api
-    startCommand: npx prisma db push --accept-data-loss && npx ts-node prisma/seed.ts && npm run start --workspace=apps/api
+    buildCommand: npm ci && npx prisma generate && npx prisma db push --accept-data-loss && npm run build --workspace=apps/api
+    startCommand: npm run start --workspace=apps/api
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV

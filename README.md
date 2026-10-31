@@ -234,7 +234,7 @@ npm run build --workspace=apps/web
 - **Backend API (Render)**: Managed via [`render.yaml`](render.yaml) with automatic zero-downtime deploys and health checks pointed at `/api/v1/health`.
 - **Frontend App (Vercel)**: Managed via [`vercel.json`](vercel.json) optimized for Next.js static generation and serverless execution.
 
----
+----
 
 ## License
 

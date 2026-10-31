@@ -1,36 +1,29 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { AppModule } from './app.module';
-import * as cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import { WinstonModule } from 'nest-winston';
-import * as winston from 'winston';
+import * as cookieParser from 'cookie-parser';
+import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: WinstonModule.createLogger({
-      transports: [
-        new winston.transports.Console({
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.colorize(),
-            winston.format.printf(({ timestamp, level, message, ...meta }) => {
-              const metaStr = Object.keys(meta).length
-                ? JSON.stringify(meta)
-                : '';
-              return `[${timestamp}] ${level}: ${message} ${metaStr}`;
-            }),
-          ),
-        }),
-      ],
-    }),
-  });
+  const app = await NestFactory.create(AppModule);
 
   // Security headers
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginEmbedderPolicy: false,
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: [`'self'`],
+          styleSrc: [`'self'`, `'unsafe-inline'`],
+          imgSrc: [`'self'`, 'data:', 'validator.swagger.io'],
+          scriptSrc: [`'self'`, `https: 'unsafe-inline'`],
+        },
+      },
+    }),
+  );
 
-  // Cookie parsing
+  // Cookie parser
   app.use(cookieParser());
 
   // Global prefix
@@ -55,7 +48,14 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true); // server-to-server / curl
-      return callback(null, corsOrigins.includes(origin));
+      if (
+        corsOrigins.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
+        origin.includes('localhost')
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -91,4 +91,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-
