@@ -23,6 +23,82 @@ const PASSWORD_MAX_LENGTH = 128;
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  async onModuleInit() {
+    try {
+      this.logger.log("Bootstrapping core users and initial payment records...");
+      const adminPass = await argon2.hash("test123", { type: argon2.argon2id });
+      const staffPass = await argon2.hash("test123", { type: argon2.argon2id });
+
+      // Clean unwanted / legacy dummy accounts if present
+      await this.prisma.user.deleteMany({
+        where: {
+          email: {
+            in: ["testdemo_check@example.com", "admin@brightloop.com", "staff2@brightloop.com"]
+          }
+        }
+      });
+
+      // Upsert admin
+      await this.prisma.user.upsert({
+        where: { emailNormalized: "admin@gmail.com" },
+        update: { passwordHash: adminPass, role: "ADMIN", status: "ACTIVE", firstName: "admin", lastName: "User" },
+        create: {
+          id: uuidv4(),
+          email: "admin@gmail.com",
+          emailNormalized: "admin@gmail.com",
+          passwordHash: adminPass,
+          firstName: "admin",
+          lastName: "User",
+          role: "ADMIN",
+          status: "ACTIVE",
+        },
+      });
+
+      // Upsert staff
+      await this.prisma.user.upsert({
+        where: { emailNormalized: "staff@gmail.com" },
+        update: { passwordHash: staffPass, role: "STAFF", status: "ACTIVE", firstName: "staff", lastName: "User" },
+        create: {
+          id: uuidv4(),
+          email: "staff@gmail.com",
+          emailNormalized: "staff@gmail.com",
+          passwordHash: staffPass,
+          firstName: "staff",
+          lastName: "User",
+          role: "STAFF",
+          status: "ACTIVE",
+        },
+      });
+
+      // Seed customer payments if none exist
+      const paymentCount = await this.prisma.payment.count();
+      if (paymentCount === 0) {
+        const customers = await this.prisma.customer.findMany({ take: 5, include: { user: true } });
+        for (let i = 0; i < customers.length; i++) {
+          const c = customers[i];
+          const payNum = "PAY-" + String(i + 1).padStart(6, "0");
+          await this.prisma.payment.create({
+            data: {
+              number: payNum,
+              customerId: c.id,
+              method: i % 2 === 0 ? "CREDIT_CARD" : "BANK_TRANSFER",
+              amount: new Prisma.Decimal(49.00 * (i + 1)),
+              currency: c.currency || "USD",
+              paymentDate: new Date(),
+              reference: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+              notes: "Monthly subscription auto-payment",
+              unallocated: new Prisma.Decimal(0),
+            },
+          });
+        }
+        this.logger.log("Initial customer payments seeded successfully.");
+      }
+    } catch (e) {
+      this.logger.error("AuthService onModuleInit error:", e);
+    }
+  }
+
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
