@@ -23,10 +23,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint Web App
+        run: npm run lint --workspace=apps/web
+
       - name: Build Next.js Web App
         run: npm run build --workspace=apps/web
         env:
-          NEXT_PUBLIC_API_URL: https://brightloop-api.onrender.com/api/v1
+          NEXT_PUBLIC_API_URL: https://brightloop-sms-api.onrender.com/api/v1
 
   validate-api:
     name: Build & Validate NestJS Backend
@@ -47,9 +50,39 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Lint API
+        run: npm run lint --workspace=apps/api
+
       - name: Build API
         run: npm run build --workspace=apps/api
+
+      - name: Run Unit Tests
+        run: npm test
 
       - name: Run Integration Tests
         run: npx jest tests/integration/auth.test.ts tests/integration/pricing.test.ts tests/integration/billing.test.ts tests/integration/payments.test.ts
 
+  validate-worker:
+    name: Build & Validate Background Worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Lint Worker
+        run: npm run lint --workspace=apps/worker
+
+      - name: Build Worker
+        run: npm run build --workspace=apps/worker

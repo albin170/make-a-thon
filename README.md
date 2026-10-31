@@ -1,222 +1,241 @@
-# Brightloop Subscription Management System
+# Brightloop Subscription Management System (SMS)
 
-A subscription and recurring-billing management platform for Brightloop Software. The project is organized as a TypeScript monorepo with a web dashboard, REST API, background worker, and shared PostgreSQL data model.
+[![CI Status](https://github.com/albin170/make-a-thon/actions/workflows/ci.yml/badge.svg)](https://github.com/albin170/make-a-thon/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-10-ea2845.svg)](https://nestjs.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-5.11-2D3748.svg)](https://www.prisma.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 
-> **Project status:** This README documents the repository structure and intended setup. Configure real credentials and verify all integrations before using the system in production.
+Brightloop SMS is an enterprise-grade TypeScript modular monolith engineered for end-to-end subscription lifecycle orchestration, automated recurring billing, precise multi-currency pricing, PDF invoicing, manual payment reconciliation, and real-time financial reporting.
 
-## Overview
+---
 
-Brightloop is designed to bring subscription operations into one place instead of relying on spreadsheets and manual invoice processing.
+## Architecture Overview
 
-Core areas of the application include:
+```mermaid
+flowchart TD
+    subgraph ClientLayer["Client Applications"]
+        BrowserAdmin["Admin & Operations Dashboard\n(Next.js 14 App Router)"]
+        BrowserCustomer["Customer Self-Service Portal\n(Next.js 14 App Router)"]
+    end
 
-- **Products and variants** — manage product details, prices, costs, and variant price adjustments.
-- **Subscription plans** — define recurring billing intervals and plan availability.
-- **Subscriptions and quotations** — manage customer subscriptions and their lifecycle.
-- **Recurring billing** — schedule billing work through a background worker.
-- **Invoices and payments** — track invoice status, payment records, and outstanding balances.
-- **Taxes and discounts** — centralize pricing calculations and discount rules.
-- **Reporting** — provide a view of subscription and billing activity.
-- **Authentication and access control** — support protected API routes and role-based access.
-- **Email and invoice files** — support email delivery and invoice document/storage integrations..
+    subgraph ApiGateway["NestJS Modular Monolith API (/api/v1)"]
+        HealthMod["Health & Liveness (/api/v1/health)"]
+        AuthMod["Auth & RBAC (Argon2id + JWT)"]
+        ProdMod["Products & Brand Variants"]
+        PlanMod["Plans & Recurrence Policies"]
+        QuoMod["Quotations & Approvals"]
+        SubMod["Subscription Lifecycle Engine"]
+        InvMod["Invoices & PDF Generation"]
+        PayMod["Payment & Ledger Reconciliation"]
+        PriceEngine["Deep Pricing Engine (18,4 BigInt Minor Units)"]
+        RecurEngine["Deep Recurrence Engine (Interval Stepping)"]
+        BillSched["Billing Scheduler (Cron)"]
+        ReportMod["Financial Reporting (Live Metrics)"]
+    end
 
-Availability and completeness of individual features depend on their current implementation and configuration.
+    subgraph DataStorage["State & Persistence Layer"]
+        Postgres[(PostgreSQL 16\nRelational Schema)]
+        Redis[(Redis 7\nBullMQ Queues)]
+        MinIO[(MinIO / S3\nEncrypted PDF Store)]
+        MailHog[(SMTP Mail Server)]
+    end
+
+    subgraph WorkerLayer["Async Background Workers"]
+        BillWorker["BullMQ Billing Worker"]
+        EmailWorker["Transactional Outbox Worker"]
+        PdfWorker["Invoice PDF Generator Worker"]
+    end
+
+    BrowserAdmin -->|REST / JWT| ApiGateway
+    BrowserCustomer -->|REST / JWT| ApiGateway
+    ApiGateway --> Postgres
+    BillSched -->|Enqueue Period| Redis
+    Redis --> BillWorker
+    BillWorker -->|Idempotent Billing Tx| Postgres
+    BillWorker -->|Outbox Event| Postgres
+    EmailWorker -->|Poll Outbox| Postgres
+    EmailWorker -->|Dispatch| MailHog
+    PdfWorker -->|Upload PDF| MinIO
+```
+
+---
+
+## Core Capabilities
+
+- **Subscription Lifecycle Management**: Full state-machine transitions across `DRAFT`, `PENDING_APPROVAL`, `ACTIVE`, `PAUSED`, `OVERDUE`, `CANCELLED`, and `EXPIRED` with immutable audit logs.
+- **Server-Side Pricing Engine**: High-precision arithmetic using integer minor units (18,4 fixed scale via `BigInt`) to eliminate floating-point drift, supporting both inclusive and exclusive VAT/tax rates, line-item discounts, and variant price adjustments.
+- **Automated Recurring Billing Engine**: BullMQ-backed scheduler computing deterministic idempotency keys (`${subscriptionId}::${YYYY-MM-DD}`) to prevent duplicate charges and race conditions across retry attempts.
+- **Consolidated Recurrence Engine**: Unified interval projection across `DAILY`, `WEEKLY`, `MONTHLY`, and `YEARLY` cadence with leap-safe month clamping.
+- **Invoicing & PDF Generation**: Automated invoice issuance with PDF streaming via PDFKit and S3/MinIO cloud persistence.
+- **Payment Reconciliation**: Partial and full payment allocations with balance deductions, over-allocation guards, and overdue status detection.
+- **Role-Based Access Control (RBAC)**: Argon2id password hashing, HTTP-only JWT sessions with rotation, global route throttling, and security headers (Helmet).
+- **Container Health & Liveness Checks**: Dedicated `/api/v1/health` endpoint for container orchestrators and cloud platforms.
+
+---
 
 ## Technology Stack
 
-| Area | Technologies |
-| --- | --- |
-| Web application | Next.js 14, React 18, TypeScript |
-| UI | Tailwind CSS, Headless UI, Heroicons |
-| API | NestJS, REST, Swagger/OpenAPI |
-| Database | PostgreSQL 16, Prisma ORM |
-| Background jobs | Redis, Bull |
-| Authentication and security | JWT/Passport, Argon2, Helmet, request throttling |
-| Forms and validation | React Hook Form, Zod, class-validator |
-| Charts | Recharts |
-| Documents and email | PDFKit, Nodemailer |
-| Local infrastructure | Docker Compose, MinIO, MailHog |
+| Layer | Technologies |
+|---|---|
+| **Web Frontend** | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Headless UI, Heroicons |
+| **Backend API** | NestJS 10, Express, TypeScript, class-validator, Helmet, Winston, OpenAPI/Swagger |
+| **Database & ORM** | PostgreSQL 16, Prisma ORM 5.x (Fixed decimal 18,4, UUID primary keys) |
+| **Job Queues & Cache** | Redis 7, BullMQ (exponential backoff, deduplication via `jobId`) |
+| **Security & Auth** | Argon2id, JWT (Passport.js), HTTP-only cookies, Rate Limiting |
+| **Document Generation** | PDFKit (streaming), AWS S3 / MinIO storage |
+| **Testing** | Jest 29, `@types/jest`, `ts-jest`, Supertest |
+| **Local Infrastructure** | Docker Compose (PostgreSQL, Redis, MinIO, MailHog) |
 
-## Architecture
+---
+
+## Repository Structure
 
 ```text
 make-a-thon/
 ├── apps/
-│   ├── web/          # Next.js frontend
-│   ├── api/          # NestJS REST API
-│   └── worker/       # Background job processing
-├── prisma/           # Prisma schema and database seed
-├── infra/docker/     # Database initialization assets
-├── docker-compose.yml
-├── .env.example
-└── package.json      # npm workspaces and root scripts
+│   ├── web/                     # Next.js 14 frontend (Admin & Customer Portal)
+│   ├── api/                     # NestJS REST API
+│   │   ├── src/
+│   │   │   ├── auth/            # Authentication & RBAC guards
+│   │   │   ├── billing/         # Billing engine & scheduler
+│   │   │   ├── common/          # Cross-cutting modules
+│   │   │   │   ├── pricing/     # Server-side high-precision pricing engine
+│   │   │   │   ├── recurrence/  # Unified recurrence & period key engine
+│   │   │   │   └── prisma/      # Database client service
+│   │   │   ├── customers/       # Customer profile management
+│   │   │   ├── health/          # API liveness & container health checks
+│   │   │   ├── invoices/        # Invoicing, PDF streaming & balances
+│   │   │   ├── payments/        # Payment recording & reconciliation
+│   │   │   ├── plans/           # Subscription plans & tiers
+│   │   │   ├── products/        # Product catalog & variant adjustments
+│   │   │   ├── quotations/      # Quotations & auto-conversion
+│   │   │   ├── reports/         # Financial metrics & aggregations
+│   │   │   └── users/           # User & staff administration
+│   │   └── package.json
+│   └── worker/                  # Background BullMQ queue processors
+├── prisma/                      # Schema definition and database seed script
+├── infra/                       # Docker infrastructure assets
+├── tests/                       # Monorepo integration test suites
+│   └── integration/
+│       ├── auth.test.ts         # Security & authentication tests
+│       ├── billing.test.ts      # Billing idempotency & date stepping tests
+│       ├── payments.test.ts     # Allocation & reconciliation tests
+│       └── pricing.test.ts      # BigInt pricing engine & tax precision tests
+├── .github/workflows/ci.yml     # Automated CI/CD pipeline
+├── docker-compose.yml           # Supporting infrastructure
+└── package.json                 # Monorepo workspaces configuration
 ```
 
-The web application communicates with the API. The API and worker use PostgreSQL for persistent records and Redis for queued background work. Docker Compose provides local supporting services, including MinIO for S3-compatible object storage and MailHog for capturing development email.
-
-## Prerequisites
-
-Install the following before starting:
-
-- Node.js compatible with the project dependencies (Node.js 20 LTS is a sensible starting point)
-- npm
-- Docker Desktop with Docker Compose
-- Git
+---
 
 ## Getting Started
 
-### 1. Clone the repository
+### Prerequisites
+
+Ensure you have installed:
+- **Node.js** >= 20.x LTS
+- **npm** >= 10.x
+- **Docker Desktop** (with Docker Compose)
+- **Git**
+
+### 1. Clone & Install Dependencies
 
 ```bash
 git clone https://github.com/albin170/make-a-thon.git
 cd make-a-thon
-```
-
-### 2. Install dependencies
-
-```bash
 npm install
 ```
 
-### 3. Configure environment variables
+### 2. Configure Environment
 
-Copy the example configuration and edit it for your environment.
+Copy the example environment configuration:
 
-**Windows PowerShell**
-```powershell
+```bash
+# Linux / macOS
+cp .env.example .env
+
+# Windows PowerShell
 Copy-Item .env.example .env
 ```
 
-**macOS / Linux**
-```bash
-cp .env.example .env
-```
+Review `.env` and configure your credentials as appropriate.
 
-Set the database URL, Redis URL, JWT/session secrets, frontend/API URLs, email settings, and storage settings as needed. Do not commit your real `.env` file or production secrets.
+### 3. Start Local Infrastructure
 
-### 4. Start local infrastructure
-
-Start the supporting services defined in Docker Compose:
+Launch PostgreSQL, Redis, MinIO, and MailHog via Docker Compose:
 
 ```bash
 docker compose up -d postgres redis minio mailhog
 ```
 
-Useful local service addresses:
+Service endpoints:
+- **Web App**: `http://localhost:3000`
+- **REST API**: `http://localhost:3001`
+- **Swagger Docs**: `http://localhost:3001/api/docs`
+- **Health Check**: `http://localhost:3001/api/v1/health`
+- **MailHog Inbox**: `http://localhost:8025`
+- **MinIO Console**: `http://localhost:9001` (User: `minioadmin`, Pass: `minioadmin`)
 
-| Service | Address |
-| --- | --- |
-| Web app (when running) | http://localhost:3000 |
-| API (when running) | http://localhost:3001 |
-| MailHog inbox | http://localhost:8025 |
-| MinIO console | http://localhost:9001 |
-| PostgreSQL | localhost:5432 |
-| Redis | localhost:6379 |
+### 4. Database Setup & Seeding
 
-The credentials in the repository's Compose file are for local development only. Replace them for any non-local environment.
-
-### 5. Prepare the database
-
-Review the Prisma schema and migration files before applying changes. Then run:
+Generate the Prisma client, apply database migrations, and seed sample data:
 
 ```bash
+npx prisma generate
 npm run db:migrate
 npm run db:seed
 ```
 
-If the seed command or migration fails, check the `DATABASE_URL`, confirm PostgreSQL is healthy, and follow any setup instructions defined by the current Prisma schema. The seed script may create development/sample records.
+To explore the database visually:
+```bash
+npm run db:studio
+```
 
-### 6. Run the application
+### 5. Running the Application
 
-Start the web app, API, and worker together:
+To run all workspaces (API, Web, Worker) concurrently:
 
 ```bash
 npm run dev
 ```
 
-Or run a component separately:
+Or run individual services:
 
 ```bash
-npm run dev:web
-npm run dev:api
-npm run dev:worker
+npm run dev:api     # NestJS API on http://localhost:3001
+npm run dev:web     # Next.js Web on http://localhost:3000
+npm run dev:worker  # BullMQ background worker
 ```
 
-The root `dev` command starts all three processes concurrently. Run it in a terminal from the repository root.
+---
 
-### 7. Explore the database
+## Testing & Quality Assurance
 
-To open Prisma Studio:
-
-```bash
-npm run db:studio
-```
-
-## Environment Configuration
-
-The `.env.example` file documents the project's expected configuration. Important variables include:
-
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection used by queued jobs |
-| `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, `SESSION_SECRET` | Authentication/session secrets |
-| `NEXT_PUBLIC_API_URL` | API base URL used by the frontend |
-| `SMTP_HOST`, `SMTP_PORT`, `EMAIL_FROM` | Outgoing email configuration |
-| `STORAGE_ENDPOINT`, `STORAGE_BUCKET` | S3-compatible document storage |
-| `APP_URL`, `FRONTEND_URL` | Application URLs used in links and messages |
-
-Use unique, strong secrets outside local development. Never put private credentials in client-side variables or source control.
-
-## Available Scripts
-
-Run these from the repository root:
-
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start web, API, and worker in parallel |
-| `npm run dev:web` | Start the Next.js web application |
-| `npm run dev:api` | Start the NestJS API in watch mode |
-| `npm run dev:worker` | Start the background worker |
-| `npm run build` | Build configured workspaces |
-| `npm test` | Run available workspace tests |
-| `npm run lint` | Run available workspace lint scripts |
-| `npm run db:migrate` | Run Prisma development migrations |
-| `npm run db:seed` | Run the database seed script |
-| `npm run db:studio` | Open Prisma Studio |
-
-Some scripts depend on the relevant workspace and infrastructure being configured. Check each workspace's `package.json` for its exact scripts.
-
-## Security Notes
-
-- Keep `.env` and all production credentials out of Git.
-- Replace the development secrets and default service passwords before deployment.
-- Use HTTPS and secure cookie/session settings in production.
-- Restrict administrative and staff actions through server-side authorization.
-- Validate input at API boundaries and apply least-privilege database and storage permissions.
-- Test password reset, authorization, billing retries, and invoice access before release.
-- Use backups and verify that database restoration works.
-
-## Testing and Quality Checks
-
-Before submitting changes, run the checks available in the repository:
+The codebase includes comprehensive unit and integration test suites:
 
 ```bash
+# Run unit tests across workspaces
 npm test
-npm run lint
-npm run build
+
+# Run end-to-end integration test suites
+npx jest tests/integration/auth.test.ts tests/integration/pricing.test.ts tests/integration/billing.test.ts tests/integration/payments.test.ts
+
+# Validate TypeScript compilation & production builds
+npm run build --workspace=apps/api
+npm run build --workspace=apps/web
 ```
 
-For billing-related changes, also test recurring billing across retries, duplicate job delivery, partial payments, tax/discount calculations, and invoice status transitions. Do not treat a successful build alone as proof that every integration works.
+---
 
-## Contributing
+## Cloud Deployment
 
-1. Create a feature branch.
-2. Make a focused change and add or update tests.
-3. Run the relevant lint, test, and build commands.
-4. Commit with a descriptive message.
-5. Open a pull request describing the change and its verification.
+- **Backend API (Render)**: Managed via [`render.yaml`](render.yaml) with automatic zero-downtime deploys and health checks pointed at `/api/v1/health`.
+- **Frontend App (Vercel)**: Managed via [`vercel.json`](vercel.json) optimized for Next.js static generation and serverless execution.
+
+---
 
 ## License
 
-No license is currently specified in the repository. Unless a license is added, standard copyright restrictions apply to reuse and redistribution.
+Private and proprietary. All rights reserved by Brightloop Software.
