@@ -68,9 +68,8 @@ export default function CustomerSubscriptionsPage() {
                   <td className="px-6 py-4 font-mono font-medium text-slate-900">{s.number}</td>
                   <td className="px-6 py-4 text-slate-700">{s.plan?.name}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${
-                      s.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${s.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
                       {s.status}
                     </span>
                   </td>
@@ -104,3 +103,4 @@ export default function CustomerSubscriptionsPage() {
     </div>
   );
 }
+

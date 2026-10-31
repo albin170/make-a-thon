@@ -75,3 +75,4 @@ export class InvoicesController {
     return this.invoicesService.sendInvoice(id, req.user?.id);
   }
 }
+

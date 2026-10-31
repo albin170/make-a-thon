@@ -42,3 +42,4 @@ export class TaxService {
     return this.prisma.taxRule.update({ where: { id }, data: { isActive: false } });
   }
 }
+

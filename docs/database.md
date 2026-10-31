@@ -29,3 +29,4 @@
 - `Invoice`: Financial statement with status `DRAFT`, `CONFIRMED`, `PAID`, `CANCELLED` and `PaymentStatus` (`UNPAID`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`).
 - `Payment` & `PaymentAllocation`: Multi-invoice payment tracking and balance settlement.
 - `NotificationOutbox`: Transactional email outbox pattern.
+

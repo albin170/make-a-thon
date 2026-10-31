@@ -59,3 +59,4 @@ flowchart TD
 - **Job Queues & Scheduler**: Redis 7, BullMQ (exponential backoff, deduplication jobId).
 - **Document Generation**: PDFKit (server-side streaming) and AWS S3 / MinIO storage.
 - **Security**: Argon2id password hashing, HTTP-only JWT sessions, rate limiting, and zero plaintext token persistence.
+

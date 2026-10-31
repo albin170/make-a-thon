@@ -18,3 +18,4 @@
 - [x] **Immutable Confirmed Invoices**: Once confirmed, invoice lines cannot be edited.
 - [x] **Atomic Payment Allocations**: Database transactions prevent over-allocation.
 - [x] **Concurrency Locking**: Discount usage limits checked and incremented within database transactions.
+

@@ -39,3 +39,4 @@ Enqueue BullMQ Job with `jobId = periodKey`
 - Bounded retries: 5 attempts with exponential backoff and jitter.
 - If a worker crashes mid-run, the database transaction rolls back. On worker restart, BullMQ re-executes using the exact same `periodKey`.
 - If an invoice is already attached to the `BillingPeriod`, the job exits cleanly without creating duplicates.
+

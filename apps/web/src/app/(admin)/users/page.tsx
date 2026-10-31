@@ -58,13 +58,12 @@ export default function UsersPage() {
                   <td className="px-6 py-4 font-medium text-slate-900">{u.firstName} {u.lastName}</td>
                   <td className="px-6 py-4 text-slate-600">{u.email}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                      u.role === 'ADMIN'
-                        ? 'bg-purple-100 text-purple-800'
-                        : u.role === 'STAFF'
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'ADMIN'
+                      ? 'bg-purple-100 text-purple-800'
+                      : u.role === 'STAFF'
                         ? 'bg-blue-100 text-blue-800'
                         : 'bg-slate-100 text-slate-800'
-                    }`}>
+                      }`}>
                       {u.role}
                     </span>
                   </td>
@@ -85,3 +84,4 @@ export default function UsersPage() {
     </div>
   );
 }
+

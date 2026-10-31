@@ -40,3 +40,4 @@
 - **Admin**: `admin@brightloop.com` / `Admin@12345`
 - **Staff**: `staff1@brightloop.com` / `Staff@12345`
 - **Customer**: `customer1@example.com` / `Customer@12345`
+

@@ -21,7 +21,7 @@ import { QuotationsService } from './quotations.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller({ path: 'quotations', version: '1' })
 export class QuotationsController {
-  constructor(private readonly quotationsService: QuotationsService) {}
+  constructor(private readonly quotationsService: QuotationsService) { }
 
   @Post()
   @Roles('ADMIN', 'STAFF')
@@ -68,3 +68,4 @@ export class QuotationsController {
     return this.quotationsService.rejectQuotation(id);
   }
 }
+

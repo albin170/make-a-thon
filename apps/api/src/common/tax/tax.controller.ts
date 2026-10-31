@@ -51,3 +51,4 @@ export class TaxController {
     return this.taxService.deactivateTaxRule(id);
   }
 }
+

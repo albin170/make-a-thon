@@ -53,3 +53,4 @@ describe('Pricing Engine & Tax Precision Tests', () => {
     expect(finalPrice).toBe(1760);
   });
 });
+

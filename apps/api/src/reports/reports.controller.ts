@@ -37,3 +37,4 @@ export class ReportsController {
     return this.reportsService.getSubscriptionGrowth();
   }
 }
+

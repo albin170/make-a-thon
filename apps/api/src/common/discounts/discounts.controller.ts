@@ -50,3 +50,4 @@ export class DiscountsController {
     return this.discountsService.validateAndConsume(body.code, body.subtotal, body.subscriptionId);
   }
 }
+

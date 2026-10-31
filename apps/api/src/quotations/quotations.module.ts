@@ -7,4 +7,4 @@ import { QuotationsService } from './quotations.service';
   providers: [QuotationsService],
   exports: [QuotationsService],
 })
-export class QuotationsModule {}
+export class QuotationsModule { }

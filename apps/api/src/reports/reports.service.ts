@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getDashboardMetrics() {
     const [activeSubscriptions, totalRevenueResult, outstandingResult, overdueCount] =
@@ -140,3 +140,4 @@ export class ReportsService {
     }));
   }
 }
+
