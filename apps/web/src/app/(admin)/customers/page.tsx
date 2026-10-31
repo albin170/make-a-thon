@@ -7,6 +7,9 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [inspectedSubscriptions, setInspectedSubscriptions] = useState<any[]>([]);
+  const [inspectedInvoices, setInspectedInvoices] = useState<any[]>([]);
+  const [inspectorLoading, setInspectorLoading] = useState(false);
 
   // Add Customer modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -39,6 +42,44 @@ export default function CustomersPage() {
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  useEffect(() => {
+    if (!selectedCustomer) {
+      setInspectedSubscriptions([]);
+      setInspectedInvoices([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadInspectorData = async () => {
+      setInspectorLoading(true);
+      try {
+        const customerId = encodeURIComponent(selectedCustomer.id);
+        const [subscriptionsResponse, invoicesResponse] = await Promise.all([
+          apiClient.get<any>(`/subscriptions?customerId=${customerId}&limit=100`),
+          apiClient.get<any>(`/invoices?customerId=${customerId}&limit=100`),
+        ]);
+
+        if (!cancelled) {
+          setInspectedSubscriptions(Array.isArray(subscriptionsResponse?.data) ? subscriptionsResponse.data : []);
+          setInspectedInvoices(Array.isArray(invoicesResponse?.data) ? invoicesResponse.data : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load customer billing details', err);
+          setInspectedSubscriptions([]);
+          setInspectedInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setInspectorLoading(false);
+      }
+    };
+
+    loadInspectorData();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCustomer]);
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -409,11 +450,13 @@ export default function CustomersPage() {
             {/* Subscriptions section */}
             <div className="mb-6">
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span>🔄</span> Subscriptions ({selectedCustomer.subscriptions?.length || 1})
+                <span>🔄</span> Subscriptions ({inspectedSubscriptions.length})
               </h4>
               <div className="space-y-2">
-                {selectedCustomer.subscriptions?.length ? (
-                  selectedCustomer.subscriptions.map((s: any) => (
+                {inspectorLoading ? (
+                  <p className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-slate-400">Loading subscriptions...</p>
+                ) : inspectedSubscriptions.length ? (
+                  inspectedSubscriptions.map((s: any) => (
                     <div key={s.id} className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
                       <div>
                         <span className="font-semibold text-white">{s.plan?.name || 'Pro Plan'}</span>
@@ -425,15 +468,7 @@ export default function CustomersPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-semibold text-white">Pro Plan (Self-Service)</span>
-                      <p className="text-slate-400 text-[11px]">Valid until Jul 25, 2026</p>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30">
-                      ACTIVE
-                    </span>
-                  </div>
+                  <p className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-slate-400">No subscriptions recorded.</p>
                 )}
               </div>
             </div>
@@ -441,33 +476,26 @@ export default function CustomersPage() {
             {/* Invoices section */}
             <div className="mb-4">
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span>💳</span> Invoices ({selectedCustomer.invoices?.length || 1})
+                <span>💳</span> Invoices ({inspectedInvoices.length})
               </h4>
               <div className="space-y-2">
-                {selectedCustomer.invoices?.length ? (
-                  selectedCustomer.invoices.map((inv: any) => (
+                {inspectorLoading ? (
+                  <p className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-slate-400">Loading invoices...</p>
+                ) : inspectedInvoices.length ? (
+                  inspectedInvoices.map((inv: any) => (
                     <div key={inv.id} className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
                       <div>
-                        <span className="font-semibold text-white">#{inv.invoiceNumber || 'INV-2026-001'}</span>
+                        <span className="font-semibold text-white">#{inv.number}</span>
                         <p className="text-slate-400 text-[11px]">Due: {new Date(inv.dueDate || Date.now()).toLocaleDateString()}</p>
                       </div>
                       <div className="text-right">
-                        <span className="font-bold text-white">${Number(inv.total || 49).toFixed(2)}</span>
-                        <p className="text-emerald-400 font-semibold text-[10px]">{inv.status}</p>
+                        <span className="font-bold text-white">${Number(inv.total || 0).toFixed(2)}</span>
+                        <p className="text-emerald-400 font-semibold text-[10px]">{inv.paymentStatus || inv.status}</p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-semibold text-white">#INV-2026-001</span>
-                      <p className="text-slate-400 text-[11px]">Generated on Registration</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-bold text-white">$49.00</span>
-                      <p className="text-emerald-400 font-semibold text-[10px]">PAID</p>
-                    </div>
-                  </div>
+                  <p className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-slate-400">No invoices recorded.</p>
                 )}
               </div>
             </div>
