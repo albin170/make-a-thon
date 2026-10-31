@@ -20,6 +20,11 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
     const u = getStoredUser();
     if (!u) {
       router.replace('/login');
+    } else if (u.role !== 'CUSTOMER' && u.role !== 'customer') {
+      // The portal is strictly customer-scoped. Admins and staff should use
+      // the customer inspector from the admin workspace instead of seeing
+      // data for a different account here.
+      router.replace('/dashboard');
     } else {
       setUser(u);
     }
@@ -60,14 +65,8 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-xs font-semibold text-emerald-300">Customer Portal</span>
               </div>
-              {(user.role === 'ADMIN' || user.role === 'STAFF') && (
-                <Link
-                  href="/dashboard"
-                  className="text-[10px] bg-violet-600/30 hover:bg-violet-600/50 text-violet-200 px-2 py-0.5 rounded border border-violet-400/30 transition"
-                >
-                  Admin ↗
-                </Link>
-              )}
+            </div>
+          </div>
             </div>
           </div>
 
