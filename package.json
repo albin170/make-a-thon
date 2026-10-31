@@ -13,13 +13,16 @@
     "dev:web": "npm run dev --workspace=apps/web",
     "dev:worker": "npm run dev --workspace=apps/worker",
     "build": "npm run build --workspaces",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:worker": "npm run build --workspace=apps/worker",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npx ts-node prisma/seed.ts",
     "db:studio": "npx prisma studio",
     "build:render": "npm install --include=dev && prisma generate --schema=prisma/schema.prisma && npm run build --workspace=apps/api",
-    "start:render": "node apps/api/dist/src/main.js"
+    "start:render": "node apps/api/dist/main.js"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
