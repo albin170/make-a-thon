@@ -50,7 +50,9 @@ async function bootstrap() {
       if (!origin) return callback(null, true); // server-to-server / curl
       if (
         corsOrigins.includes(origin) ||
+        // Vercel/Render preview subdomains change per deploy — allow the TLDs
         origin.endsWith('.vercel.app') ||
+        origin.endsWith('.onrender.com') ||
         origin.includes('localhost')
       ) {
         return callback(null, true);
