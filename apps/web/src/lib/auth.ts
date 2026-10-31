@@ -1,9 +1,11 @@
 import { User, clearTokens } from './api-client'
 
 export function saveSession(accessToken: string, refreshToken: string, user: User) {
-  localStorage.setItem('access_token', accessToken)
-  localStorage.setItem('refresh_token', refreshToken)
-  localStorage.setItem('user', JSON.stringify(user))
+  // Keep each login isolated to its browser tab. This prevents an admin login
+  // in another demo tab from replacing the current customer's identity.
+  sessionStorage.setItem('access_token', accessToken)
+  sessionStorage.setItem('refresh_token', refreshToken)
+  sessionStorage.setItem('user', JSON.stringify(user))
 }
 
 export function setAuthSession(accessToken: string, refreshToken: string, user: any) {
@@ -12,8 +14,8 @@ export function setAuthSession(accessToken: string, refreshToken: string, user: 
 
 export function getSession(): { user: User; token: string } | null {
   if (typeof window === 'undefined') return null
-  const token = localStorage.getItem('access_token')
-  const raw = localStorage.getItem('user')
+  const token = sessionStorage.getItem('access_token')
+  const raw = sessionStorage.getItem('user')
   if (!token || !raw) return null
   try {
     return { user: JSON.parse(raw) as User, token }

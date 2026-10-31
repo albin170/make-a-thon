@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Request,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -29,10 +30,14 @@ export class PlansController {
   constructor(private readonly plansService: PlansService) {}
 
   @Get()
-  @Roles('ADMIN', 'STAFF')
+  @Roles('ADMIN', 'STAFF', 'CUSTOMER')
   listPlans(
     @Query() query: ListPlansQueryDto,
+    @Request() req: any,
   ) {
+    if (req.user.role === 'CUSTOMER') {
+      query.status = PlanStatus.ACTIVE;
+    }
     return this.plansService.listPlans(query);
   }
 

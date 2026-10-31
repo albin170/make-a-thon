@@ -1,7 +1,8 @@
 # Repository workflow rules
 
-- Work on the `arjun` branch for backend changes in this workspace.
-- Push changes only to `arjun`.
-- Open pull requests from `arjun` into `main` for review.
-- Do not push directly to `main`.
+- Work on designated contributor/feature branches (`arjun`, `jameson`, or `feat/*`) for changes in this workspace.
+- Before pushing, pull the latest changes from the remote repository and resolve any conflicts locally.
+- Commit completed changes with clear Conventional Commit-style messages.
+- Push only to designated feature branches, never directly to `main`.
+- Open pull requests from contributor/feature branches into `main` for review.
 - Before handing off a PR, run the relevant checks and verify the PR status with GitHub CLI.

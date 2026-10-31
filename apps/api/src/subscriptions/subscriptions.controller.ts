@@ -29,6 +29,17 @@ export class SubscriptionsController {
     private readonly ownership: CustomerOwnershipService,
   ) {}
 
+  @Post('purchase')
+  @Roles('CUSTOMER')
+  @ApiOperation({ summary: 'Purchase an available plan for the authenticated customer' })
+  purchase(@Body() dto: { planId: string; quantity?: number }, @Request() req: any) {
+    return this.subscriptionsService.purchaseSubscription(
+      req.user.id,
+      dto.planId,
+      dto.quantity,
+    );
+  }
+
   @Post()
   @Roles('ADMIN', 'STAFF')
   @ApiOperation({ summary: 'Create a new subscription' })

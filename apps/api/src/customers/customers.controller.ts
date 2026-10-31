@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Body,
@@ -15,7 +16,7 @@ import {
   ApiOperation,
   ApiQuery,
 } from '@nestjs/swagger';
-import { CustomersService } from './customers.service';
+import { CustomersService, CreateCustomerDto } from './customers.service';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { ListCustomersQueryDto } from './dto/list-customers-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -49,6 +50,17 @@ export class CustomersController {
     @Query() query: ListCustomersQueryDto,
   ) {
     return this.customersService.listCustomers(query);
+  }
+
+  /**
+   * POST /v1/customers
+   * Create a new customer (ADMIN, STAFF only)
+   */
+  @Post()
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @ApiOperation({ summary: 'Create a new customer (ADMIN, STAFF)' })
+  createCustomer(@Body() dto: CreateCustomerDto) {
+    return this.customersService.createCustomer(dto);
   }
 
   /**
