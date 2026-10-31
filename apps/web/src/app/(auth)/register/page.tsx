@@ -39,7 +39,12 @@ export default function RegisterPage() {
       await apiClient.post('/auth/register', payload);
       router.push('/login?registered=1');
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Registration failed. Please verify your details.');
+      const msg = err?.response?.data?.message || err?.message || 'Registration failed. Please verify your details.';
+      if (typeof msg === 'string' && (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('networkerror') || msg.toLowerCase().includes('load resource'))) {
+        setError('Unable to reach the Brightloop API service. Please verify your network connection or check API service status.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -136,11 +141,11 @@ export default function RegisterPage() {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                minLength={8}
+                minLength={9}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="w-full pl-3.5 pr-10 py-2.5 rounded-xl glass-input text-sm text-white placeholder-slate-500"
-                placeholder="Min 8 chars with uppercase, lowercase & symbol"
+                placeholder="Min 9 chars with uppercase, lowercase, number & symbol"
               />
               <button
                 type="button"
@@ -161,7 +166,7 @@ export default function RegisterPage() {
               </button>
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              Must contain uppercase, lowercase, number, and special symbol.
+              Must be at least 9 characters and contain uppercase, lowercase, number, and special symbol.
             </p>
           </div>
 

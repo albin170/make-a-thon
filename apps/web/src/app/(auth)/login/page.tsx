@@ -68,7 +68,12 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Login failed. Please check your credentials.');
+      const msg = err?.response?.data?.message || err?.message || 'Login failed. Please check your credentials.';
+      if (typeof msg === 'string' && (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('networkerror') || msg.toLowerCase().includes('load resource'))) {
+        setError('Unable to reach the Brightloop API service. Please verify your network connection or check API service status.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
