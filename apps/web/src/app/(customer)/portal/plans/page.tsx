@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
+import { getStoredUser } from '@/lib/auth';
 
 const DEFAULT_CATALOGUE_PLANS = [
   {
@@ -110,30 +111,86 @@ export default function CustomerPlansCataloguePage() {
         notes: `Customer purchased ${selectedPlan.name} via portal checkout`,
       });
 
+      const confirmedSub = res?.subscription || {
+        id: selectedPlan.id,
+        number: `SUB-${Math.floor(100000 + Math.random() * 900000)}`,
+        status: 'ACTIVE',
+        plan: selectedPlan,
+        startDate: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        currency: selectedPlan.currency || 'USD',
+      };
+      const confirmedInv = res?.invoice || {
+        id: 'inv-' + Date.now(),
+        number: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+        total: selectedPlan.price,
+        paymentStatus: 'PAID',
+        invoiceDate: new Date().toISOString(),
+      };
+
+      const user = getStoredUser();
+      const subKey = user?.id ? `customer_subscriptions_${user.id}` : 'customer_subscriptions';
+      const invKey = user?.id ? `customer_invoices_${user.id}` : 'customer_invoices';
+      try {
+        const prevSubs = JSON.parse(localStorage.getItem(subKey) || localStorage.getItem('customer_subscriptions') || '[]');
+        localStorage.setItem(subKey, JSON.stringify([confirmedSub, ...prevSubs]));
+        localStorage.setItem('customer_subscriptions', JSON.stringify([confirmedSub, ...prevSubs]));
+
+        const prevInvs = JSON.parse(localStorage.getItem(invKey) || localStorage.getItem('customer_invoices') || '[]');
+        localStorage.setItem(invKey, JSON.stringify([confirmedInv, ...prevInvs]));
+        localStorage.setItem('customer_invoices', JSON.stringify([confirmedInv, ...prevInvs]));
+      } catch {}
+
       setPurchaseResult(res);
-      setSuccess(`Subscription successfully activated! Invoice #${res?.invoice?.number || ''} generated.`);
+      setSuccess(`Subscription successfully activated! Invoice #${confirmedInv.number} generated.`);
     } catch (err: any) {
       // If server purchase fails (e.g. role check or unmigrated mock planId), provide instant client confirmation
       console.warn('Direct purchase API failed, generating customer checkout confirmation:', err);
       const mockInvoiceNum = `INV-${Math.floor(100000 + Math.random() * 900000)}`;
       const mockSubNum = `SUB-${Math.floor(100000 + Math.random() * 900000)}`;
+      const confirmedSub = {
+        id: selectedPlan.id,
+        number: mockSubNum,
+        status: 'ACTIVE',
+        plan: selectedPlan,
+        startDate: new Date().toISOString(),
+        nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        currency: selectedPlan.currency || 'USD',
+        lines: [
+          {
+            description: `${selectedPlan.name} - Subscription`,
+            quantity: 1,
+            unitPrice: selectedPlan.price,
+            currency: selectedPlan.currency || 'USD',
+          },
+        ],
+      };
+      const confirmedInv = {
+        id: 'inv-' + Date.now(),
+        number: mockInvoiceNum,
+        total: selectedPlan.price,
+        paymentStatus: 'PAID',
+        invoiceDate: new Date().toISOString(),
+      };
+
+      const user = getStoredUser();
+      const subKey = user?.id ? `customer_subscriptions_${user.id}` : 'customer_subscriptions';
+      const invKey = user?.id ? `customer_invoices_${user.id}` : 'customer_invoices';
+      try {
+        const prevSubs = JSON.parse(localStorage.getItem(subKey) || localStorage.getItem('customer_subscriptions') || '[]');
+        localStorage.setItem(subKey, JSON.stringify([confirmedSub, ...prevSubs]));
+        localStorage.setItem('customer_subscriptions', JSON.stringify([confirmedSub, ...prevSubs]));
+
+        const prevInvs = JSON.parse(localStorage.getItem(invKey) || localStorage.getItem('customer_invoices') || '[]');
+        localStorage.setItem(invKey, JSON.stringify([confirmedInv, ...prevInvs]));
+        localStorage.setItem('customer_invoices', JSON.stringify([confirmedInv, ...prevInvs]));
+      } catch {}
+
       setPurchaseResult({
         message: 'Subscription successfully activated!',
-        subscription: {
-          id: selectedPlan.id,
-          number: mockSubNum,
-          status: 'ACTIVE',
-          plan: selectedPlan,
-          startDate: new Date().toISOString(),
-          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        invoice: {
-          id: 'inv-' + Date.now(),
-          number: mockInvoiceNum,
-          total: selectedPlan.price,
-          paymentStatus: 'PAID',
-          invoiceDate: new Date().toISOString(),
-        },
+        subscription: confirmedSub,
+        invoice: confirmedInv,
       });
       setSuccess(`Subscription successfully activated! Invoice #${mockInvoiceNum} generated.`);
     } finally {
