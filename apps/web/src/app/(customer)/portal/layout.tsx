@@ -7,6 +7,7 @@ import { getStoredUser, clearAuthSession } from '@/lib/auth';
 
 const navigation = [
   { name: 'Dashboard', href: '/portal/dashboard', icon: '🏠' },
+  { name: 'Browse Plans', href: '/portal/plans', icon: '✨' },
   { name: 'My Subscriptions', href: '/portal/subscriptions', icon: '🔄' },
   { name: 'Invoices', href: '/portal/invoices', icon: '💳' },
 ];

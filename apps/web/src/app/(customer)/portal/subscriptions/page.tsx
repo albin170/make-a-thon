@@ -140,7 +140,10 @@ export default function CustomerSubscriptionsPage() {
               ) : subs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
-                    You have no subscriptions registered yet.
+                    <p>You have no subscriptions registered yet.</p>
+                    <Link href="/portal/plans" className="inline-block mt-4 px-4 py-2 rounded-xl btn-neon text-xs font-bold text-white">
+                      Browse Available Plans →
+                    </Link>
                   </td>
                 </tr>
               ) : (
