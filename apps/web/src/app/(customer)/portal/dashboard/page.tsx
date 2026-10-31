@@ -33,8 +33,15 @@ export default function CustomerDashboardPage() {
     load();
   }, []);
 
-  const activeCount = subs.filter((s) => s.status === 'ACTIVE').length || 2;
-  const invoicesCount = invoices.length || 3;
+  const activeSubscriptions = subs.filter((s) => s.status === 'ACTIVE');
+  const activeCount = activeSubscriptions.length;
+  const invoicesCount = invoices.length;
+  const totalSpend = invoices.reduce((sum, invoice) => sum + Number(invoice.total || 0), 0);
+  const nextRenewal = activeSubscriptions
+    .map((subscription) => subscription.nextBillingDate)
+    .filter(Boolean)
+    .sort()[0];
+  const planName = activeSubscriptions[0]?.plan?.name || 'No active plan';
 
   return (
     <div className="space-y-6 pb-10">
@@ -48,7 +55,7 @@ export default function CustomerDashboardPage() {
         </div>
 
         {/* Upgrade to Pro Ribbon Banner with Minimize & Close */}
-        {!ribbonDismissed && (
+        {!ribbonDismissed && activeCount > 0 && (
           ribbonMinimized ? (
             <div className="glass-card px-4 py-2 rounded-2xl flex items-center gap-2 border border-violet-500/25">
               <span className="text-xs font-bold text-violet-300 flex items-center gap-1.5">
@@ -82,7 +89,7 @@ export default function CustomerDashboardPage() {
                     <span className="text-xs font-bold text-white tracking-wide">Pro Member</span>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   </div>
-                  <p className="text-[11px] text-slate-300">Your plan is active until Jul 25, 2026</p>
+                  <p className="text-[11px] text-slate-300">Your {planName} subscription is active</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -139,7 +146,7 @@ export default function CustomerDashboardPage() {
             <span className="text-xs text-emerald-400 font-semibold">USD</span>
           </div>
           <div className="mt-4">
-            <span className="text-3xl font-extrabold text-white tracking-tight">$49.00</span>
+            <span className="text-3xl font-extrabold text-white tracking-tight">${totalSpend.toFixed(2)}</span>
             <p className="text-xs text-slate-400 font-medium mt-0.5">Total Spend</p>
           </div>
         </div>
@@ -153,7 +160,9 @@ export default function CustomerDashboardPage() {
             <span className="text-xs text-amber-400 font-semibold">Auto-pay</span>
           </div>
           <div className="mt-4">
-            <span className="text-2xl font-extrabold text-white tracking-tight">Jul 25, 2026</span>
+            <span className="text-2xl font-extrabold text-white tracking-tight">
+              {nextRenewal ? new Date(nextRenewal).toLocaleDateString() : '—'}
+            </span>
             <p className="text-xs text-slate-400 font-medium mt-0.5">Next Renewal</p>
           </div>
         </div>
@@ -200,7 +209,7 @@ export default function CustomerDashboardPage() {
 
           <div className="relative h-60 w-full">
             <div className="absolute top-10 right-8 glass-card px-3 py-1.5 rounded-xl border border-violet-400/40 text-center pointer-events-none z-10">
-              <span className="text-xs font-extrabold text-white">$49.00</span>
+              <span className="text-xs font-extrabold text-white">${totalSpend.toFixed(2)}</span>
             </div>
 
             <svg className="w-full h-full" viewBox="0 0 600 220" fill="none" preserveAspectRatio="none">
@@ -252,7 +261,7 @@ export default function CustomerDashboardPage() {
           </div>
 
           <div className="my-3">
-            <h3 className="text-2xl font-extrabold text-white tracking-tight">Pro Plan</h3>
+            <h3 className="text-2xl font-extrabold text-white tracking-tight">{planName}</h3>
             <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
               Advanced features for your growing needs, with automated renewals and premium support.
             </p>
@@ -266,12 +275,14 @@ export default function CustomerDashboardPage() {
             </div>
           </div>
 
-          <Link
-            href="/portal/subscriptions"
-            className="w-full py-3 rounded-xl btn-neon text-xs font-bold text-center block mt-2"
-          >
-            Upgrade Plan →
-          </Link>
+          {activeCount > 0 && (
+            <Link
+              href="/portal/subscriptions"
+              className="w-full py-3 rounded-xl btn-neon text-xs font-bold text-center block mt-2"
+            >
+              Manage Plan →
+            </Link>
+          )}
         </div>
       </div>
 
@@ -311,24 +322,19 @@ export default function CustomerDashboardPage() {
             <span className="text-[10px] text-slate-500">2h ago</span>
           </div>
           <div className="space-y-3">
-            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs shrink-0">
-                ✓
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-white">Subscription renewed</p>
-                <p className="text-[11px] text-slate-400">Pro Plan • Active until Jul 25, 2026</p>
-              </div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs shrink-0">
-                💳
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-white">Payment of $49.00 processed</p>
-                <p className="text-[11px] text-slate-400">Invoice #INV-2025-006</p>
-              </div>
-            </div>
+            {invoices.length === 0 && activeCount === 0 ? (
+              <p className="text-xs text-slate-400">No subscription or billing activity yet.</p>
+            ) : (
+              invoices.slice(0, 2).map((invoice) => (
+                <div key={invoice.id} className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs shrink-0">💳</div>
+                  <div>
+                    <p className="text-xs font-semibold text-white">Invoice {invoice.number}</p>
+                    <p className="text-[11px] text-slate-400">${Number(invoice.total || 0).toFixed(2)} • {invoice.paymentStatus || invoice.status}</p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
