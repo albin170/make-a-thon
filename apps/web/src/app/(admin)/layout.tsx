@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { getStoredUser, clearAuthSession } from '@/lib/auth';
+import { apiClient } from '@/lib/api-client';
 
 const navigation = [
   { name: 'Home', href: '/dashboard', icon: '🏠' },
@@ -37,14 +38,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [router]);
 
+  const handleLogout = async () => {
+    try {
+      await apiClient.post('/auth/logout', {});
+    } finally {
+      clearAuthSession();
+      router.replace('/login');
+    }
+  };
+
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
-
-  const handleLogout = () => {
-    clearAuthSession();
-    router.replace('/login');
-  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

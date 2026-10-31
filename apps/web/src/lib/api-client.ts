@@ -110,7 +110,8 @@ async function request<T>(
     try {
       data = await res.json()
       if (typeof data === 'object' && data !== null && 'message' in data) {
-        message = (data as { message: string }).message
+        const rawMessage = (data as { message: string | string[] }).message
+        message = Array.isArray(rawMessage) ? rawMessage.join(', ') : rawMessage
       }
     } catch {}
     throw new ApiError(res.status, message, data)
@@ -287,7 +288,7 @@ export const plansApi = {
   get: (id: string) => api.get<Plan>(`/plans/${id}`),
   create: (data: Partial<Plan>) => api.post<Plan>('/plans', data),
   update: (id: string, data: Partial<Plan>) =>
-    api.put<Plan>(`/plans/${id}`, data),
+    api.patch<Plan>(`/plans/${id}`, data),
 }
 
 // ─── Quotations ───────────────────────────────────────────────────────────────
@@ -322,9 +323,9 @@ export const quotationsApi = {
   create: (data: Partial<Quotation>) => api.post<Quotation>('/quotations', data),
   update: (id: string, data: Partial<Quotation>) =>
     api.put<Quotation>(`/quotations/${id}`, data),
-  send: (id: string) => api.post<Quotation>(`/quotations/${id}/send`, {}),
-  accept: (id: string) => api.post<Quotation>(`/quotations/${id}/accept`, {}),
-  reject: (id: string) => api.post<Quotation>(`/quotations/${id}/reject`, {}),
+  send: (id: string) => api.patch<Quotation>(`/quotations/${id}/send`, {}),
+  accept: (id: string) => api.patch<Quotation>(`/quotations/${id}/accept`, {}),
+  reject: (id: string) => api.patch<Quotation>(`/quotations/${id}/reject`, {}),
 }
 
 // ─── Subscriptions ────────────────────────────────────────────────────────────
@@ -350,12 +351,12 @@ export const subscriptionsApi = {
   get: (id: string) => api.get<Subscription>(`/subscriptions/${id}`),
   create: (data: Partial<Subscription>) =>
     api.post<Subscription>('/subscriptions', data),
-  cancel: (id: string) =>
-    api.post<Subscription>(`/subscriptions/${id}/cancel`, {}),
+  cancel: (id: string, reason?: string) =>
+    api.patch<Subscription>(`/subscriptions/${id}/cancel`, { reason }),
   pause: (id: string) =>
-    api.post<Subscription>(`/subscriptions/${id}/pause`, {}),
+    api.patch<Subscription>(`/subscriptions/${id}/pause`, {}),
   resume: (id: string) =>
-    api.post<Subscription>(`/subscriptions/${id}/resume`, {}),
+    api.patch<Subscription>(`/subscriptions/${id}/resume`, {}),
 }
 
 // ─── Invoices ─────────────────────────────────────────────────────────────────
@@ -388,7 +389,7 @@ export const invoicesApi = {
   list: (params: PaginationParams) =>
     api.get<PaginatedResponse<Invoice>>(`/invoices${buildQueryString(params)}`),
   get: (id: string) => api.get<Invoice>(`/invoices/${id}`),
-  void: (id: string) => api.post<Invoice>(`/invoices/${id}/void`, {}),
+  void: (id: string) => api.patch<Invoice>(`/invoices/${id}/cancel`, {}),
   send: (id: string) => api.post<Invoice>(`/invoices/${id}/send`, {}),
   downloadPdf: async (id: string) => {
     const token = getToken()
@@ -441,7 +442,7 @@ export interface BillingRun {
 export const billingApi = {
   runs: (params: PaginationParams) =>
     api.get<PaginatedResponse<BillingRun>>(`/billing/runs${buildQueryString(params)}`),
-  triggerRun: () => api.post<BillingRun>('/billing/runs', {}),
+  triggerRun: () => api.post<BillingRun>('/billing/trigger', {}),
 }
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
@@ -480,7 +481,7 @@ export const usersApi = {
   create: (data: Partial<AdminUser> & { password: string }) =>
     api.post<AdminUser>('/users', data),
   update: (id: string, data: Partial<AdminUser>) =>
-    api.put<AdminUser>(`/users/${id}`, data),
+    api.patch<AdminUser>(`/users/${id}`, data),
   delete: (id: string) => api.delete<void>(`/users/${id}`),
 }
 

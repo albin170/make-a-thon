@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { DiscountsService } from './discounts.service';
+import { CreateDiscountRuleDto, UpdateDiscountRuleDto } from './dto/discount-rule.dto';
 
 @ApiTags('discounts')
 @ApiBearerAuth()
@@ -32,14 +33,14 @@ export class DiscountsController {
   @Post()
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Create discount rule' })
-  create(@Body() dto: any) {
+  create(@Body() dto: CreateDiscountRuleDto) {
     return this.discountsService.createDiscountRule(dto);
   }
 
   @Put(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Update discount rule' })
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: any) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDiscountRuleDto) {
     return this.discountsService.updateDiscountRule(id, dto);
   }
 

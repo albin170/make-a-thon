@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { TaxService } from './tax.service';
+import { CreateTaxRuleDto, UpdateTaxRuleDto } from './dto/tax-rule.dto';
 
 @ApiTags('taxes')
 @ApiBearerAuth()
@@ -33,14 +34,14 @@ export class TaxController {
   @Post()
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Create tax rule' })
-  create(@Body() dto: any) {
+  create(@Body() dto: CreateTaxRuleDto) {
     return this.taxService.createTaxRule(dto);
   }
 
   @Put(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Update tax rule' })
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: any) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateTaxRuleDto) {
     return this.taxService.updateTaxRule(id, dto);
   }
 

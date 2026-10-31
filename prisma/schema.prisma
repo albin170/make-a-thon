@@ -500,6 +500,9 @@ model Subscription {
   resumedAt       DateTime?
   closedAt        DateTime?
   cancelledAt     DateTime?
+  cancellationRequestedAt DateTime?
+  cancellationEffectiveAt DateTime?
+  cancellationReason String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -515,6 +518,7 @@ model Subscription {
   @@index([planId])
   @@index([status])
   @@index([nextBillingDate])
+  @@index([cancellationEffectiveAt])
   @@index([number])
 }
 

@@ -26,6 +26,8 @@ export class BillingScheduler {
 
     const now = startOfDay(new Date());
 
+    await this.finalizeDueCancellations(now);
+
     // Find active subscriptions whose next billing date is today or earlier
     // and that have not ended yet (plan expiry respected).
     const dueSubscriptions = await this.prisma.subscription.findMany({
@@ -107,6 +109,44 @@ export class BillingScheduler {
     }
 
     this.logger.log(`Enqueued ${enqueued} billing jobs for run ${run.id}`);
+  }
+
+  private async finalizeDueCancellations(now: Date) {
+    const due = await this.prisma.subscription.findMany({
+      where: {
+        status: { in: ['ACTIVE', 'PAUSED'] },
+        cancellationEffectiveAt: { lte: now },
+      },
+      select: { id: true, status: true, cancellationReason: true },
+    });
+
+    for (const subscription of due) {
+      await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.subscription.updateMany({
+          where: {
+            id: subscription.id,
+            status: { in: ['ACTIVE', 'PAUSED'] },
+            cancellationEffectiveAt: { lte: now },
+          },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: now,
+          },
+        });
+
+        if (updated.count === 1) {
+          await tx.subscriptionAuditEvent.create({
+            data: {
+              subscriptionId: subscription.id,
+              action: 'CANCELLATION_EFFECTIVE',
+              fromStatus: subscription.status,
+              toStatus: 'CANCELLED',
+              reason: subscription.cancellationReason ?? undefined,
+            },
+          });
+        }
+      });
+    }
   }
 
   derivePeriodKey(subscriptionId: string, billingDate: Date): string {
