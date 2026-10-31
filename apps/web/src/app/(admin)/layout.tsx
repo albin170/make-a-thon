@@ -23,6 +23,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const u = getStoredUser();
@@ -35,9 +37,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [router]);
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   const handleLogout = () => {
     clearAuthSession();
     router.replace('/login');
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    router.push(`/subscriptions?search=${encodeURIComponent(searchQuery.trim())}`);
   };
 
   if (!user) return null;
@@ -49,8 +61,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="absolute bottom-[-15%] right-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-600/15 blur-[160px] pointer-events-none" />
       <div className="absolute top-[40%] right-[30%] w-[450px] h-[450px] rounded-full bg-cyan-600/10 blur-[140px] pointer-events-none" />
 
-      {/* Sidebar */}
-      <aside className="w-64 glass-panel border-r border-white/10 flex flex-col justify-between shrink-0 z-20">
+      {/* Mobile Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
+        />
+      )}
+
+      {/* Responsive Admin Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 glass-panel border-r border-white/10 flex flex-col justify-between shrink-0 transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div>
           {/* Logo */}
           <div className="p-5 border-b border-white/10 flex items-center justify-between">
@@ -62,6 +86,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
               <span className="text-xl font-bold tracking-tight text-white">Brightloop</span>
             </Link>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+              aria-label="Close navigation menu"
+            >
+              ✕
+            </button>
           </div>
 
           {/* Quick Workspace Switcher */}
@@ -73,12 +106,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   {user.role}
                 </span>
               </div>
-              <div className="grid grid-cols-1 gap-1.5 text-xs">
+              <div className="flex gap-1.5">
+                <Link
+                  href="/dashboard"
+                  className={`flex-1 text-center py-1 rounded-lg text-xs font-semibold transition ${
+                    pathname === '/dashboard' || pathname.startsWith('/users') || pathname.startsWith('/billing')
+                      ? 'bg-violet-600/30 text-violet-200 border border-violet-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Admin
+                </Link>
                 <Link
                   href="/staff/dashboard"
-                  className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-center transition flex items-center justify-center gap-1"
+                  className="flex-1 text-center py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition"
                 >
-                  <span>💼</span> Staff Workspace
+                  Staff
+                </Link>
+                <Link
+                  href="/portal/dashboard"
+                  className="flex-1 text-center py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition"
+                >
+                  Customer
                 </Link>
               </div>
             </div>
@@ -92,7 +141,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-xl transition duration-150 ${
+                  className={`flex items-center gap-3 px-3.5 py-2 text-sm font-medium rounded-xl transition duration-150 ${
                     active
                       ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30 font-semibold'
                       : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
@@ -107,24 +156,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <div>
-          {/* Admin System Governance Info */}
-          <div className="p-3 mx-3 mb-3 rounded-2xl bg-gradient-to-br from-violet-900/20 to-slate-900/60 border border-violet-500/20 p-4 text-center relative overflow-hidden">
-            <div className="w-9 h-9 rounded-xl bg-violet-600/20 text-violet-300 flex items-center justify-center mx-auto mb-2 text-lg border border-violet-400/25">
-              🛡️
-            </div>
-            <h4 className="text-xs font-bold text-white tracking-wide">Administrator Hub</h4>
-            <p className="text-[11px] text-slate-400 mt-1">Full system control, billing governance & user management.</p>
-          </div>
-
           {/* User profile footer */}
           <div className="p-4 border-t border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3 truncate mr-2">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-violet-600 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-md">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-md">
                 {user.firstName ? user.firstName.charAt(0).toUpperCase() : 'A'}
               </div>
               <div className="truncate">
                 <p className="text-xs font-semibold text-white truncate">
-                  {user.firstName || 'Alex'} {user.lastName || 'Kumar'}
+                  {user.firstName || 'Admin'} {user.lastName || 'User'}
                 </p>
                 <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
               </div>
@@ -132,6 +172,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <button
               onClick={handleLogout}
               title="Logout"
+              aria-label="Logout"
               className="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-white/5 transition"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -144,11 +185,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main content container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
-        {/* Top Header Bar matching Image 1 */}
-        <header className="h-16 glass-panel border-b border-white/10 flex items-center justify-between px-6 shrink-0">
+        <header className="h-16 glass-panel border-b border-white/10 flex items-center justify-between px-4 sm:px-6 shrink-0 gap-3">
           {/* Search bar with ⌘ K shortcut */}
-          <div className="flex items-center w-full max-w-md">
-            <div className="relative w-full">
+          <div className="flex items-center gap-3 w-full max-w-md">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none"
+              aria-label="Open navigation menu"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            <form onSubmit={handleSearchSubmit} className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -156,33 +207,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
               <input
                 type="text"
-                placeholder="Search subscriptions, invoices, customers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search subscriptions, invoices, customers (Press Enter)..."
                 className="w-full pl-10 pr-12 py-2 rounded-xl glass-input text-xs text-white placeholder-slate-400"
               />
-              <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+              <div className="hidden sm:flex absolute inset-y-0 right-0 pr-2.5 items-center pointer-events-none">
                 <kbd className="px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 bg-white/10 rounded border border-white/10">
-                  ⌘ K
+                  ↵
                 </kbd>
               </div>
-            </div>
+            </form>
           </div>
 
           {/* Right Header Controls */}
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3.5 shrink-0">
             <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               Active System
             </span>
 
-            {/* Notification Bell with Badge */}
-            <button className="relative p-2 rounded-xl glass-panel text-slate-300 hover:text-white transition">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-[#060913]" />
-            </button>
-
-            {/* Dark / Light Toggle icon */}
             <div className="p-2 rounded-xl glass-panel text-slate-300 flex items-center gap-1 text-xs">
               <span>🌙</span>
             </div>
@@ -190,7 +234,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Viewport content */}
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

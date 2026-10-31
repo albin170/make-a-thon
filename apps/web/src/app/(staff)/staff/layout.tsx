@@ -19,6 +19,8 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const u = getStoredUser();
@@ -31,9 +33,19 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     }
   }, [router]);
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   const handleLogout = () => {
     clearAuthSession();
     router.replace('/login');
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    router.push(`/customers?search=${encodeURIComponent(searchQuery.trim())}`);
   };
 
   if (!user) return null;
@@ -44,10 +56,22 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       <div className="absolute top-[-15%] left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-600/15 blur-[160px] pointer-events-none" />
       <div className="absolute bottom-[-15%] right-[-10%] w-[600px] h-[600px] rounded-full bg-violet-600/15 blur-[160px] pointer-events-none" />
 
-      {/* Staff Sidebar */}
-      <aside className="w-64 glass-panel border-r border-white/10 flex flex-col justify-between shrink-0 z-20">
+      {/* Mobile Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
+        />
+      )}
+
+      {/* Staff Responsive Sidebar / Drawer */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 glass-panel border-r border-white/10 flex flex-col justify-between shrink-0 transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div>
-          {/* Logo */}
+          {/* Logo & Close Button for mobile */}
           <div className="p-5 border-b border-white/10 flex items-center justify-between">
             <Link href="/staff/dashboard" className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -57,6 +81,15 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
               </div>
               <span className="text-xl font-bold tracking-tight text-white">Brightloop</span>
             </Link>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+              aria-label="Close navigation menu"
+            >
+              ✕
+            </button>
           </div>
 
           {/* Role pill indicator */}
@@ -100,7 +133,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         </div>
 
         <div>
-          {/* Pro Tools banner matching Image 2 */}
+          {/* Operational Tools banner */}
           <div className="p-3 mx-3 mb-3 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900/60 border border-indigo-500/20 p-4 text-center">
             <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-300 flex items-center justify-center mx-auto mb-2 text-lg border border-indigo-400/25">
               🛡️
@@ -117,7 +150,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
               </div>
               <div className="truncate">
                 <p className="text-xs font-semibold text-white truncate">
-                  {user.firstName || 'Sarah'} {user.lastName || 'Wilson'}
+                  {user.firstName || 'Staff'} {user.lastName || 'User'}
                 </p>
                 <p className="text-[11px] text-indigo-300 truncate font-medium">Internal Staff</p>
               </div>
@@ -125,6 +158,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             <button
               onClick={handleLogout}
               title="Logout"
+              aria-label="Logout"
               className="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-white/5 transition"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -137,9 +171,22 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
-        <header className="h-16 glass-panel border-b border-white/10 flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center w-full max-w-md">
-            <div className="relative w-full">
+        <header className="h-16 glass-panel border-b border-white/10 flex items-center justify-between px-4 sm:px-6 shrink-0 gap-3">
+          <div className="flex items-center gap-3 w-full max-w-md">
+            {/* Hamburger Button for Mobile */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none"
+              aria-label="Open navigation menu"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            {/* Functional search bar */}
+            <form onSubmit={handleSearchSubmit} className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -147,14 +194,16 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
               </div>
               <input
                 type="text"
-                placeholder="Search customers, plans, invoices..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search customers, plans, invoices (Press Enter)..."
                 className="w-full pl-10 pr-4 py-2 rounded-xl glass-input text-xs text-white placeholder-slate-400"
               />
-            </div>
+            </form>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/25">
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="hidden sm:inline-block px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/25">
               Staff Portal
             </span>
             <div className="p-2 rounded-xl glass-panel text-slate-300 text-xs">
@@ -163,11 +212,10 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>
     </div>
   );
 }
-

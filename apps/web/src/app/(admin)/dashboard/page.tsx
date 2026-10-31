@@ -33,10 +33,10 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  const totalRevenue = metrics ? Number(metrics.revenueReceived || 0) : 49.0;
-  const activeSubs = metrics ? metrics.activeSubscriptions : 2;
-  const pendingRenewals = metrics ? metrics.overdueInvoices : 1;
-  const totalInvoices = 3;
+  const totalRevenue = metrics ? Number(metrics.revenueReceived || 0) : 0;
+  const activeSubs = metrics ? metrics.activeSubscriptions : 0;
+  const pendingRenewals = metrics ? metrics.overdueInvoices : 0;
+  const totalInvoices = metrics ? (metrics.activeSubscriptions + metrics.overdueInvoices) : 0;
 
   return (
     <div className="space-y-6 pb-10">
