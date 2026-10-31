@@ -45,7 +45,6 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
       router.replace('/login');
     }
   };
-  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -50,7 +50,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace('/login');
     }
   };
-  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
